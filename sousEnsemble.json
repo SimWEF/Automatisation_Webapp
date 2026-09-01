@@ -17,5 +17,10 @@
     "total": 16,
     "etat": "VERT"
   },
-  {"nom": "automatisation OK"}
+  {
+    "nom": "TEST",
+    "utilisables": 84,
+    "total": 215,
+    "etat": "VERT"
+  }
 ]
