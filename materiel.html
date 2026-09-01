@@ -1,114 +1,66 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-
-<title>Etat du matériel</title>
-
-<style>
-
-body{
-    font-family: Arial;
-    background:#f4f6f8;
-    padding:15px;
-}
-
-.card{
-    background:white;
-    padding:15px;
-    margin-bottom:10px;
-    border-radius:10px;
-    box-shadow:0 2px 5px rgba(0,0,0,0.1);
-    cursor:pointer;
-    transition:0.2s;
-}
-
-.card:hover{
-    transform:scale(1.02);
-    background:#eef6ff;
-}
-
-.nom{
-    font-size:18px;
-    font-weight:bold;
-}
-
-.dispo{
-    font-size:16px;
-    margin-top:5px;
-}
-
-.etat{
-    margin-top:8px;
-    font-size:24px;
-}
-
-</style>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>État du matériel</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <header class="app-header">
+    <a class="back" href="index.html">‹</a>
+    <h1>📊 État du matériel</h1>
+  </header>
 
-<h2>📊 Etat du matériel</h2>
-
-<div id="listeSousEnsembles"></div>
+  <div class="container">
+    <div id="listeSousEnsembles">
+      <div class="empty">Chargement…</div>
+    </div>
+  </div>
 
 <script>
-
 fetch("sousEnsemble.json")
-.then(r => r.json())
-.then(data => {
+  .then(r => r.json())
+  .then(data => {
+    const container = document.getElementById("listeSousEnsembles");
+    container.innerHTML = "";
 
-    const container =
-        document.getElementById("listeSousEnsembles");
+    if (!data || data.length === 0) {
+      container.innerHTML = '<div class="empty">Aucun sous-ensemble à afficher.</div>';
+      return;
+    }
 
     data.forEach(item => {
+      let cls = "gris", emoji = "⚪";
+      if (item.etat === "VERT")   { cls = "vert";   emoji = "🟢"; }
+      if (item.etat === "ORANGE") { cls = "orange"; emoji = "🟠"; }
+      if (item.etat === "ROUGE")  { cls = "rouge";  emoji = "🔴"; }
 
-        let couleur = "⚪";
-
-        if(item.etat === "VERT")
-            couleur = "🟢";
-
-        if(item.etat === "ORANGE")
-            couleur = "🟠";
-
-        if(item.etat === "ROUGE")
-            couleur = "🔴";
-
-        container.innerHTML += `
-            <div class="card"
-                onclick="ouvrirSousEnsemble('${item.nom}')">
-
-                <div class="nom">
-                    ${item.nom}
-                </div>
-
-                <div class="dispo">
-                    ${item.utilisables}/${item.total}
-                </div>
-
-                <div class="etat">
-                    ${couleur}
-                </div>
-
+      const card = document.createElement("div");
+      card.className = "card clickable etat-" + cls;
+      card.onclick = () => ouvrirSousEnsemble(item.nom);
+      card.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <div>
+            <div style="font-size:17px;font-weight:700">${item.nom}</div>
+            <div style="font-size:14px;color:var(--muted);margin-top:2px">
+              ${item.utilisables}/${item.total} utilisables
             </div>
-        `;
+          </div>
+          <span class="badge ${cls}">${emoji}</span>
+        </div>`;
+      container.appendChild(card);
     });
-
-});
+  })
+  .catch(() => {
+    document.getElementById("listeSousEnsembles").innerHTML =
+      '<div class="empty">Impossible de charger les données.</div>';
+  });
 
 function ouvrirSousEnsemble(nomSousEnsemble){
-
-localStorage.setItem(
-    "sousEnsembleSelectionne",
-    nomSousEnsemble
-);
-
-window.location.href =
-    "detailSousEnsemble.html";
-
+  localStorage.setItem("sousEnsembleSelectionne", nomSousEnsemble);
+  window.location.href = "detailSousEnsemble.html";
 }
-
 </script>
-
 </body>
 </html>

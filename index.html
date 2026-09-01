@@ -1,19 +1,36 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
-    <title>PIGVS</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PIGVS</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <header class="app-header">
+    <h1>🔧 PIGVS</h1>
+  </header>
 
-<h2>Choisir une application</h2>
+  <div class="container">
+    <p class="info" style="color:var(--muted)">Choisissez une application</p>
 
-<button onclick="location.href='fdm.html'">
-📝 Fiche de maintenance
-</button>
+    <a class="card clickable" href="fdm.html"
+       style="display:flex;align-items:center;gap:16px;text-decoration:none;color:inherit">
+      <div style="font-size:34px">📝</div>
+      <div>
+        <div style="font-size:18px;font-weight:700">Fiche de maintenance</div>
+        <div style="font-size:14px;color:var(--muted)">Saisir et remonter une FDM</div>
+      </div>
+    </a>
 
-<button onclick="location.href='materiel.html'">
-📊 Etat du matériel
-</button>
-
+    <a class="card clickable" href="materiel.html"
+       style="display:flex;align-items:center;gap:16px;text-decoration:none;color:inherit">
+      <div style="font-size:34px">📊</div>
+      <div>
+        <div style="font-size:18px;font-weight:700">État du matériel</div>
+        <div style="font-size:14px;color:var(--muted)">Vue d'ensemble des sous-ensembles</div>
+      </div>
+    </a>
+  </div>
 </body>
 </html>

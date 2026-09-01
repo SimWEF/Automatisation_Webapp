@@ -1,0 +1,42 @@
+<h2 id="titre"></h2>
+
+<div id="listeEquipements"></div>
+
+<script>
+const sousEnsemble =
+    localStorage.getItem(
+        "sousEnsembleSelectionne"
+    );
+
+document.getElementById("titre").innerText =
+    sousEnsemble;
+
+    fetch("etatEquipements.json")
+.then(r => r.json())
+.then(data => {
+
+    const container =
+        document.getElementById(
+            "listeEquipements"
+        );
+
+    const filtres =
+        data.filter(
+            eq =>
+            eq.sousEnsemble ===
+            sousEnsemble
+        );
+
+    filtres.forEach(eq => {
+
+        container.innerHTML += `
+        <div class="card">
+            ${eq.equipement}
+            (${eq.etat})
+        </div>
+        `;
+
+    });
+
+});
+</script>
