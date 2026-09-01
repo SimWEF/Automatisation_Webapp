@@ -19,6 +19,13 @@ body{
     margin-bottom:10px;
     border-radius:10px;
     box-shadow:0 2px 5px rgba(0,0,0,0.1);
+    cursor:pointer;
+    transition:0.2s;
+}
+
+.card:hover{
+    transform:scale(1.02);
+    background:#eef6ff;
 }
 
 .nom{
@@ -68,7 +75,8 @@ fetch("sousEnsemble.json")
             couleur = "🔴";
 
         container.innerHTML += `
-            <div class="card">
+            <div class="card"
+                onclick="ouvrirSousEnsemble('${item.nom}')">
 
                 <div class="nom">
                     ${item.nom}
@@ -87,6 +95,18 @@ fetch("sousEnsemble.json")
     });
 
 });
+
+function ouvrirSousEnsemble(nomSousEnsemble){
+
+localStorage.setItem(
+    "sousEnsembleSelectionne",
+    nomSousEnsemble
+);
+
+window.location.href =
+    "detailSousEnsemble.html";
+
+}
 
 </script>
 
