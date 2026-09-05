@@ -179,6 +179,7 @@ sendBtn.addEventListener('click', async ()=>{
 
   const files=photos.map(p=>p.file);
   const texte=
+    `#PHOTOTERRAIN#\n`+
     `Envoyer à : ${DESTINATAIRE}\n`+
     `Date : ${new Date().toLocaleString('fr-FR')}\n`+
     `Commentaire : ${commentairePhoto.value.trim()||'RAS'}`;
