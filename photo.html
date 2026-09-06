@@ -21,7 +21,8 @@
     .btn-send:disabled { opacity:.5; }
     .btn-reset { width:100%; padding:14px; font-size:15px; font-weight:bold; border:2px solid #d93838;
       border-radius:12px; cursor:pointer; background:#fff; color:#d93838; margin-top:10px; }
-    #photoInput { display:none; }
+    /* ✅ Input caché SANS display:none (compatibilité WebView Android) */
+    #photoInput { position:absolute; left:-9999px; width:1px; height:1px; opacity:0; }
     .champ { margin-bottom:12px; }
     .champ label { display:block; font-weight:bold; margin-bottom:6px; font-size:15px; }
     .champ .req { color:#d93838; }
@@ -44,7 +45,6 @@
     .status.info  { display:block; background:#e7f0fb; color:#083f78; }
     .status.ok    { display:block; background:#e4f6ec; color:#1f9d55; }
     .status.erreur{ display:block; background:#fdecec; color:#d93838; }
-    .back-link { display:inline-block; margin:10px 0; text-decoration:none; color:#0078D7; font-weight:bold; }
   </style>
 </head>
 <body>
@@ -52,7 +52,6 @@
     <a class="back" href="photos.html">‹</a>
     <h1 id="titrePage">📷 Photo</h1>
   </header>
-
   <div class="container">
     <!-- Adresse de destination -->
     <div class="card">
@@ -63,22 +62,20 @@
       </div>
       <div class="compteur">Colle cette adresse dans le champ « À » de ton mail.</div>
     </div>
-
     <!-- Paramètres (générés dynamiquement) -->
     <div class="card">
       <label>1. Renseigner les informations</label>
       <div id="champs"></div>
     </div>
-
     <!-- Photos -->
     <div class="card">
-      <label for="photoInput">2. Ajouter des photos</label>
+      <label>2. Ajouter des photos</label>
+      <!-- ✅ input hors écran + bouton qui le déclenche -->
       <input type="file" accept="image/*" multiple id="photoInput">
-      <label for="photoInput" class="btn-photo">📸 Prendre / ajouter des photos</label>
+      <button type="button" id="btnPickPhoto" class="btn-photo">📸 Prendre / ajouter des photos</button>
       <div id="galerie"></div>
       <div class="compteur" id="compteur"></div>
     </div>
-
     <!-- Envoi -->
     <div class="card">
       <label>3. Envoyer</label>
@@ -88,25 +85,12 @@
       <div id="statusPhoto" class="status"></div>
     </div>
   </div>
-
 <script>
 /* =========================================================
    CONFIGURATION GÉNÉRALE
    ========================================================= */
 const DESTINATAIRE = "souarns@westinghouse.com"; // <-- ton adresse dédiée
 
-/* Dossier racine commun à toutes les catégories.
-   La webapp construit le sous-chemin, Power Automate y ajoute #PATH#. */
-
-/* Définition des 6 types.
-   - type "json"    : menu déroulant alimenté par un fichier .json (tableau de chaînes)
-   - type "liste"   : menu déroulant avec options fixes
-   - type "date"    : sélecteur de date
-   - type "text"    : texte libre
-   - type "textarea": commentaire libre
-   path(v)    -> construit le sous-dossier SharePoint
-   fichier(v) -> construit le nom de base du fichier ("" = auto)
-   ========================================================= */
 const TYPES = {
   "colisage-conteneur": {
     titre:"📦 Colisage conteneur",
@@ -138,7 +122,7 @@ const TYPES = {
       {id:"poste",    label:"Poste",    type:"liste", options:["Matin","Après-midi","Nuit","Journée"], req:true}
     ],
     path:v=>`photo-PIGVS/${v.site}/Cahier de quart/${v.gv}/${v.activite}`,
-    fichier:v=>`${v.date}_${v.poste}`   // ex : 2026-09-05_Matin
+    fichier:v=>`${v.date}_${v.poste}`
   },
   "portee-joint": {
     titre:"🔩 Portée de joint",
@@ -194,7 +178,6 @@ if(!TYPE){
   construireChamps();
 }
 
-/* Nettoie une valeur pour un usage dans un chemin / nom de fichier SharePoint */
 function clean(s){ return (s||'').toString().trim().replace(/[\\\/:*?"<>|#]/g,'-'); }
 
 /* =========================================================
@@ -206,7 +189,6 @@ function construireChamps(){
     wrap.className='champ';
     const req = c.req ? ' <span class="req">*</span>' : '';
     let inner = `<label for="f_${c.id}">${c.label}${req}</label>`;
-
     if(c.type==='json'){
       inner += `<select id="f_${c.id}"><option value="">— choisir —</option></select>`;
     } else if(c.type==='liste'){
@@ -223,7 +205,6 @@ function construireChamps(){
     champsDiv.appendChild(wrap);
   });
 
-  // Charger les menus JSON + date du jour + écouteurs
   TYPE.champs.forEach(c=>{
     const el=document.getElementById('f_'+c.id);
     if(c.type==='json'){
@@ -240,7 +221,6 @@ function construireChamps(){
   majEtat();
 }
 
-/* Récupère les valeurs saisies (nettoyées pour le chemin/fichier) */
 function lireValeurs(){
   const v={};
   TYPE.champs.forEach(c=>{
@@ -250,7 +230,6 @@ function lireValeurs(){
   return v;
 }
 
-/* Vérifie les champs obligatoires */
 function champsOK(){
   return TYPE.champs.every(c=>{
     if(!c.req) return true;
@@ -263,6 +242,7 @@ function champsOK(){
    ========================================================= */
 let photos = [];
 const photoInput = document.getElementById('photoInput');
+const btnPickPhoto = document.getElementById('btnPickPhoto');
 const galerie    = document.getElementById('galerie');
 const compteur   = document.getElementById('compteur');
 const sendBtn    = document.getElementById('sendBtn');
@@ -273,6 +253,9 @@ const copyBtn    = document.getElementById('copyBtn');
 function setStatusP(t,m){ statusPhoto.className="status "+t; statusPhoto.innerHTML=m; }
 function clearStatusP(){ statusPhoto.className="status"; statusPhoto.innerHTML=""; }
 
+/* ✅ le bouton déclenche l'ouverture du sélecteur */
+btnPickPhoto.addEventListener('click', ()=> photoInput.click());
+
 copyBtn.addEventListener('click', async ()=>{
   try{ await navigator.clipboard.writeText(DESTINATAIRE); }
   catch(err){ const t=document.createElement('textarea'); t.value=DESTINATAIRE;
@@ -281,7 +264,6 @@ copyBtn.addEventListener('click', async ()=>{
 });
 
 photoInput.addEventListener('change', e=>{
-  alert("Photo sélectionnée");
   Array.from(e.target.files).forEach(f=>{
     const nom=`photo_${photos.length+1}_${Date.now()}.jpg`;
     const file=new File([f], nom, {type:f.type||'image/jpeg'});
@@ -307,7 +289,6 @@ function rendreGalerie(){
   majEtat();
 }
 
-/* Met à jour l'aperçu du chemin + l'état du bouton Envoyer */
 function majEtat(){
   if(!TYPE) return;
   const v=lireValeurs();
@@ -328,7 +309,6 @@ sendBtn.addEventListener('click', async ()=>{
   const chemin  = TYPE.path(v);
   const fichier = clean(TYPE.fichier(v));
 
-  // Récapitulatif lisible des champs (commentaire sans #)
   const recap = TYPE.champs.map(c=>{
     const el=document.getElementById('f_'+c.id);
     return `${c.label}: ${(el.value||'').replace(/#/g,'')}`;
