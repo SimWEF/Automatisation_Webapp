@@ -21,8 +21,8 @@
     .btn-send:disabled { opacity:.5; }
     .btn-reset { width:100%; padding:14px; font-size:15px; font-weight:bold; border:2px solid #d93838;
       border-radius:12px; cursor:pointer; background:#fff; color:#d93838; margin-top:10px; }
-    /* ✅ Input masqué hors écran (PAS display:none) pour que 'change' se déclenche
-       tout en laissant le <label> ouvrir le sélecteur (compatible WebView Android) */
+    /* Input masqué hors écran (PAS display:none) pour que 'change' se déclenche,
+       le <label> ouvre le sélecteur (fiable sur WebView Android) */
     #photoInput { position:absolute; width:1px; height:1px; padding:0; margin:-1px;
       overflow:hidden; clip:rect(0,0,0,0); border:0; }
     .champ { margin-bottom:12px; }
@@ -72,7 +72,6 @@
     <!-- Photos -->
     <div class="card">
       <label>2. Ajouter des photos</label>
-      <!-- ✅ le <label> ouvre le sélecteur (fiable sur WebView), l'input reste dans le flux -->
       <input type="file" accept="image/*" multiple id="photoInput">
       <label for="photoInput" class="btn-photo">📸 Prendre / ajouter des photos</label>
       <div id="galerie"></div>
@@ -160,27 +159,34 @@ const TYPES = {
 };
 
 /* =========================================================
-   INITIALISATION
+   RÉFÉRENCES DOM (déclarées AVANT toute utilisation)
    ========================================================= */
 const params = new URLSearchParams(location.search);
 const TYPE_ID = params.get('type');
 const TYPE = TYPES[TYPE_ID];
 
-const champsDiv = document.getElementById('champs');
-const titrePage = document.getElementById('titrePage');
+const champsDiv    = document.getElementById('champs');
+const titrePage    = document.getElementById('titrePage');
 const apercuChemin = document.getElementById('apercuChemin');
+
+let photos = [];
+const photoInput = document.getElementById('photoInput');
+const galerie    = document.getElementById('galerie');
+const compteur   = document.getElementById('compteur');
+const sendBtn    = document.getElementById('sendBtn');
+const resetBtn   = document.getElementById('resetBtn');
+const statusPhoto= document.getElementById('statusPhoto');
+const copyBtn    = document.getElementById('copyBtn');
 
 document.getElementById('mailDest').textContent = DESTINATAIRE;
 
-if(!TYPE){
-  titrePage.textContent = "⚠️ Type inconnu";
-  champsDiv.innerHTML = "<p style='color:#d93838'>Type de photo non reconnu. Reviens au menu Photos.</p>";
-} else {
-  titrePage.textContent = TYPE.titre;
-  construireChamps();
-}
-
+/* =========================================================
+   FONCTIONS UTILITAIRES
+   ========================================================= */
 function clean(s){ return (s||'').toString().trim().replace(/[\\\/:*?"<>|#]/g,'-'); }
+
+function setStatusP(t,m){ statusPhoto.className="status "+t; statusPhoto.innerHTML=m; }
+function clearStatusP(){ statusPhoto.className="status"; statusPhoto.innerHTML=""; }
 
 /* =========================================================
    CONSTRUCTION DES CHAMPS
@@ -242,18 +248,6 @@ function champsOK(){
 /* =========================================================
    PHOTOS
    ========================================================= */
-let photos = [];
-const photoInput = document.getElementById('photoInput');
-const galerie    = document.getElementById('galerie');
-const compteur   = document.getElementById('compteur');
-const sendBtn    = document.getElementById('sendBtn');
-const resetBtn   = document.getElementById('resetBtn');
-const statusPhoto= document.getElementById('statusPhoto');
-const copyBtn    = document.getElementById('copyBtn');
-
-function setStatusP(t,m){ statusPhoto.className="status "+t; statusPhoto.innerHTML=m; }
-function clearStatusP(){ statusPhoto.className="status"; statusPhoto.innerHTML=""; }
-
 copyBtn.addEventListener('click', async ()=>{
   try{ await navigator.clipboard.writeText(DESTINATAIRE); }
   catch(err){ const t=document.createElement('textarea'); t.value=DESTINATAIRE;
@@ -265,7 +259,6 @@ photoInput.addEventListener('change', e=>{
   const fichiers = Array.from(e.target.files || []);
   if(!fichiers.length){ setStatusP('erreur',"⚠️ Aucune photo reçue. Réessaie."); return; }
   fichiers.forEach(f=>{
-    // On garde le File d'origine (plus robuste sur WebView Android que new File(...))
     photos.push({ file:f, url:URL.createObjectURL(f) });
   });
   clearStatusP();
@@ -342,6 +335,17 @@ resetBtn.addEventListener('click',()=>{
   photos.forEach(p=>URL.revokeObjectURL(p.url));
   photos=[]; clearStatusP(); rendreGalerie();
 });
+
+/* =========================================================
+   INITIALISATION (tout en bas, une fois TOUT déclaré)
+   ========================================================= */
+if(!TYPE){
+  titrePage.textContent = "⚠️ Type inconnu";
+  champsDiv.innerHTML = "<p style='color:#d93838'>Type de photo non reconnu. Reviens au menu Photos.</p>";
+} else {
+  titrePage.textContent = TYPE.titre;
+  construireChamps();
+}
 </script>
 </body>
 </html>
