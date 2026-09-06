@@ -30,16 +30,26 @@
       border:1px solid #ccc; box-sizing:border-box; }
     textarea { min-height:70px; resize:none; }
     .card > label { display:block; font-weight:bold; margin-bottom:8px; font-size:15px; }
-    #galerie { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:14px; }
-    .vignette { position:relative; border-radius:10px; overflow:hidden; border:1px solid #d0d7de; aspect-ratio:1/1; }
-    .vignette img { width:100%; height:100%; object-fit:cover; display:block; }
-    .vignette .suppr { position:absolute; top:4px; right:4px; width:26px; height:26px;
+    /* Galerie grille (types SANS repère par photo) */
+    #galerie.grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:14px; }
+    #galerie.grid .vignette { position:relative; border-radius:10px; overflow:hidden; border:1px solid #d0d7de; aspect-ratio:1/1; }
+    #galerie.grid .vignette img { width:100%; height:100%; object-fit:cover; display:block; }
+    #galerie.grid .num { position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,.55);
+      color:#fff; font-size:12px; text-align:center; padding:2px 0; }
+    #galerie.grid .suppr { position:absolute; top:4px; right:4px; width:26px; height:26px;
       background:rgba(217,56,56,.92); color:#fff; border:none; border-radius:50%;
       font-size:15px; font-weight:bold; cursor:pointer; }
-    .vignette .num { position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,.55);
-      color:#fff; font-size:12px; text-align:center; padding:2px 0; }
+    /* Galerie liste (types AVEC repère par photo) */
+    #galerie.liste { display:flex; flex-direction:column; gap:10px; margin-top:14px; }
+    #galerie.liste .ligne { display:flex; align-items:center; gap:10px; border:1px solid #d0d7de;
+      border-radius:10px; padding:8px; }
+    #galerie.liste .ligne img { width:64px; height:64px; object-fit:cover; border-radius:8px; flex:0 0 auto; }
+    #galerie.liste .ligne .rep { flex:1; }
+    #galerie.liste .ligne .rep select { padding:10px; font-size:15px; }
+    #galerie.liste .ligne .rep.manquant select { border-color:#d93838; background:#fff5f5; }
+    #galerie.liste .ligne .suppr { width:34px; height:34px; background:#fff; color:#d93838;
+      border:2px solid #d93838; border-radius:50%; font-size:16px; font-weight:bold; cursor:pointer; flex:0 0 auto; }
     .compteur { font-size:14px; color:var(--muted,#5a6673); text-align:center; margin-top:10px; }
-    /* Barre de remplissage 10 Mo */
     .jauge { height:8px; background:#e5e9ef; border-radius:6px; overflow:hidden; margin-top:8px; }
     .jauge > div { height:100%; width:0%; background:#1f9d55; transition:width .2s, background .2s; }
     .chemin { font-size:12px; font-family:monospace; color:#083f78; background:#eef4fb;
@@ -75,7 +85,8 @@
       <label>2. Ajouter des photos</label>
       <input type="file" accept="image/*" multiple id="photoInput">
       <label for="photoInput" class="btn-photo">📸 Prendre / ajouter des photos</label>
-      <div id="galerie"></div>
+      <div id="aide-repere" class="compteur" style="display:none">Choisis un repère sous chaque photo (il servira de nom de fichier).</div>
+      <div id="galerie" class="grid"></div>
       <div class="compteur" id="compteur"></div>
       <div class="jauge"><div id="jaugeFill"></div></div>
     </div>
@@ -94,11 +105,14 @@
    ========================================================= */
 const DESTINATAIRE = "souarns@westinghouse.com"; // <-- ton adresse dédiée
 
-/* ---- Compression & limite de taille ---- */
-const QUALITE_JPEG   = 0.7;                 // ~30% (comme demandé)
-const MAX_LARGEUR    = 20000;                 // redimension max du plus grand côté (px)
-const LIMITE_TOTALE  = 10 * 1024 * 1024;     // 10 Mo au total (sécurité envoi mail)
+/* Compression & limite */
+const QUALITE_JPEG   = 0.70;                 // qualité (netteté correcte)
+const MAX_LARGEUR    = 2000;                 // px (plus grand côté)
+const LIMITE_TOTALE  = 10 * 1024 * 1024;     // 10 Mo au total
 
+/* NB : pour un type avec "reperes", chaque photo reçoit un menu déroulant.
+   La valeur choisie devient le NOM du fichier sur SharePoint.
+   Power Automate doit alors utiliser le NOM de la pièce jointe (voir notes). */
 const TYPES = {
   "colisage-conteneur": {
     titre:"📦 Colisage conteneur",
@@ -107,8 +121,7 @@ const TYPES = {
       {id:"conteneur", label:"Conteneur",       type:"json",  source:"Conteneurs.json", req:true},
       {id:"nom",       label:"Nom de la photo", type:"text",  req:false}
     ],
-    path:v=>`photo-PIGVS/${v.site}/Colisage conteneur/${v.conteneur}`,
-    fichier:v=>v.nom||""
+    path:v=>`photo-PIGVS/${v.site}/Colisage conteneur/${v.conteneur}`
   },
   "colisage-caisse": {
     titre:"🧰 Colisage caisse",
@@ -117,8 +130,7 @@ const TYPES = {
       {id:"caisse", label:"Caisse",          type:"json", source:"Caisses.json", req:true},
       {id:"nom",    label:"Nom de la photo", type:"text", req:false}
     ],
-    path:v=>`photo-PIGVS/${v.site}/Colisage caisse/${v.caisse}`,
-    fichier:v=>v.nom||""
+    path:v=>`photo-PIGVS/${v.site}/Colisage caisse/${v.caisse}`
   },
   "cahier-quart": {
     titre:"📓 Cahier de quart",
@@ -130,18 +142,25 @@ const TYPES = {
       {id:"poste",    label:"Poste",    type:"liste", options:["Matin","Après-midi","Nuit","Journée"], req:true}
     ],
     path:v=>`photo-PIGVS/${v.site}/Cahier de quart/${v.gv}/${v.activite}`,
-    fichier:v=>`${v.date}_${v.poste}`
+    nomBase:v=>`${v.date}_${v.poste}`
   },
   "portee-joint": {
     titre:"🔩 Portée de joint",
     champs:[
       {id:"site", label:"Site",            type:"json",  source:"Sites.json", req:true},
       {id:"gv",   label:"GV",              type:"liste", options:["1","2","3","4"], req:true},
-      {id:"sens", label:"Entrée / Sortie", type:"liste", options:["Entrée","Sortie"], req:true},
-      {id:"nom",  label:"Nom de la photo", type:"text",  req:false}
+      {id:"sens", label:"Entrée / Sortie", type:"liste", options:["Entrée","Sortie"], req:true}
     ],
     path:v=>`photo-PIGVS/${v.site}/Portées de joint/${v.gv}/${v.sens}`,
-    fichier:v=>v.nom||""
+    /* ✅ Menu déroulant par photo : valeur = nom du fichier */
+    reperes:[
+      {label:"TP 0",     value:"TP_0"},
+      {label:"TP 180",   value:"TP_180"},
+      {label:"TO 0DG",   value:"TO_0DG"},
+      {label:"TO 180DD", value:"TO_180DD"},
+      {label:"TO 90",    value:"TO_90"},
+      {label:"TO 270",   value:"TO_270"}
+    ]
   },
   "condition-acces": {
     titre:"🚪 Condition d'accès",
@@ -150,8 +169,7 @@ const TYPES = {
       {id:"commentaire", label:"Commentaire",     type:"textarea", req:false},
       {id:"nom",         label:"Nom de la photo", type:"text",     req:false}
     ],
-    path:v=>`photo-PIGVS/${v.site}/Conditions d'accès`,
-    fichier:v=>v.nom||""
+    path:v=>`photo-PIGVS/${v.site}/Conditions d'accès`
   },
   "autre": {
     titre:"🗂️ Autre",
@@ -160,8 +178,7 @@ const TYPES = {
       {id:"commentaire", label:"Commentaire",     type:"textarea", req:false},
       {id:"nom",         label:"Nom de la photo", type:"text",     req:false}
     ],
-    path:v=>`photo-PIGVS/${v.site}/Autre`,
-    fichier:v=>v.nom||""
+    path:v=>`photo-PIGVS/${v.site}/Autre`
   }
 };
 
@@ -175,8 +192,9 @@ const TYPE = TYPES[TYPE_ID];
 const champsDiv    = document.getElementById('champs');
 const titrePage    = document.getElementById('titrePage');
 const apercuChemin = document.getElementById('apercuChemin');
+const aideRepere   = document.getElementById('aide-repere');
 
-let photos = [];
+let photos = [];   // { file, url, repere }
 const photoInput = document.getElementById('photoInput');
 const galerie    = document.getElementById('galerie');
 const compteur   = document.getElementById('compteur');
@@ -197,7 +215,6 @@ function clearStatusP(){ statusPhoto.className="status"; statusPhoto.innerHTML="
 function tailleTotale(){ return photos.reduce((s,p)=>s+p.file.size,0); }
 function fmtMo(o){ return (o/1048576).toFixed(1); }
 
-/* Compresse une image (redimension + qualité JPEG) -> renvoie un Blob */
 function compresser(file){
   return new Promise((resolve,reject)=>{
     const reader=new FileReader();
@@ -257,6 +274,10 @@ function construireChamps(){
     el.addEventListener('input', majEtat);
     el.addEventListener('change', majEtat);
   });
+
+  // Adapter la galerie + l'aide au type
+  if(TYPE.reperes){ galerie.className='liste'; aideRepere.style.display='block'; }
+  else            { galerie.className='grid';  aideRepere.style.display='none';  }
   majEtat();
 }
 
@@ -274,6 +295,12 @@ function champsOK(){
     if(!c.req) return true;
     return document.getElementById('f_'+c.id).value.trim() !== '';
   });
+}
+
+/* Tous les repères choisis ? (types avec reperes uniquement) */
+function reperesOK(){
+  if(!TYPE.reperes) return true;
+  return photos.length>0 && photos.every(p=>p.repere && p.repere.trim()!=='');
 }
 
 /* =========================================================
@@ -298,49 +325,59 @@ photoInput.addEventListener('change', async e=>{
     let blob;
     try { blob = await compresser(f); }
     catch(err){ console.error(err); refusees++; continue; }
-
-    // Contrôle de la limite totale AVANT d'ajouter
-    if(tailleTotale() + blob.size > LIMITE_TOTALE){
-      refusees++;
-      continue;
-    }
-    const nom = `photo_${photos.length+1}_${Date.now()}.jpg`;
-    const file = new File([blob], nom, {type:'image/jpeg'});
-    photos.push({ file, url: URL.createObjectURL(file) });
+    if(tailleTotale() + blob.size > LIMITE_TOTALE){ refusees++; continue; }
+    const file = new File([blob], `tmp_${Date.now()}.jpg`, {type:'image/jpeg'});
+    photos.push({ file, url: URL.createObjectURL(file), repere:'' });
     ajoutees++;
   }
 
   rendreGalerie();
-
   if(refusees>0){
-    setStatusP('erreur',
-      `⚠️ ${ajoutees} ajoutée(s), ${refusees} refusée(s) : limite de 10 Mo atteinte. `+
-      `Envoie ce lot puis recommence pour les suivantes.`);
+    setStatusP('erreur', `⚠️ ${ajoutees} ajoutée(s), ${refusees} refusée(s) : limite de 10 Mo atteinte.`);
   } else {
-    setStatusP('info', `✅ ${ajoutees} photo(s) ajoutée(s) et compressée(s).`);
+    setStatusP('info', `✅ ${ajoutees} photo(s) ajoutée(s).`);
   }
 });
 
 function rendreGalerie(){
   galerie.innerHTML="";
-  photos.forEach((p,i)=>{
-    const div=document.createElement('div'); div.className='vignette';
-    div.innerHTML=`<img src="${p.url}"><div class="num">${i+1}</div>
-      <button class="suppr" data-i="${i}">×</button>`;
-    galerie.appendChild(div);
-  });
+
+  if(TYPE.reperes){
+    // Layout LISTE avec menu déroulant par photo
+    photos.forEach((p,i)=>{
+      const opts = `<option value="">— repère —</option>` +
+        TYPE.reperes.map(r=>`<option value="${r.value}" ${p.repere===r.value?'selected':''}>${r.label}</option>`).join('');
+      const manquant = p.repere ? '' : ' manquant';
+      const ligne=document.createElement('div'); ligne.className='ligne';
+      ligne.innerHTML =
+        `<img src="${p.url}">
+         <div class="rep${manquant}"><select data-i="${i}">${opts}</select></div>
+         <button class="suppr" data-i="${i}">×</button>`;
+      galerie.appendChild(ligne);
+    });
+    galerie.querySelectorAll('select').forEach(sel=>sel.addEventListener('change',()=>{
+      photos[+sel.dataset.i].repere = sel.value;
+      rendreGalerie();
+    }));
+  } else {
+    // Layout GRILLE simple
+    photos.forEach((p,i)=>{
+      const div=document.createElement('div'); div.className='vignette';
+      div.innerHTML=`<img src="${p.url}"><div class="num">${i+1}</div>
+        <button class="suppr" data-i="${i}">×</button>`;
+      galerie.appendChild(div);
+    });
+  }
+
   galerie.querySelectorAll('.suppr').forEach(b=>b.addEventListener('click',()=>{
     const i=+b.dataset.i; URL.revokeObjectURL(photos[i].url); photos.splice(i,1); rendreGalerie();
   }));
 
   const total=tailleTotale();
   const pct = Math.min(100, Math.round(total/LIMITE_TOTALE*100));
-  compteur.textContent = photos.length
-    ? `${photos.length} photo(s) · ${fmtMo(total)} / 10 Mo`
-    : "";
+  compteur.textContent = photos.length ? `${photos.length} photo(s) · ${fmtMo(total)} / 10 Mo` : "";
   jaugeFill.style.width = pct + '%';
   jaugeFill.style.background = pct >= 90 ? '#d93838' : (pct >= 70 ? '#e8a13a' : '#1f9d55');
-
   resetBtn.style.display = photos.length ? 'block':'none';
   majEtat();
 }
@@ -351,7 +388,29 @@ function majEtat(){
   let chemin="…";
   try{ chemin = TYPE.path(v); }catch(e){}
   apercuChemin.textContent = "Destination : /"+chemin;
-  sendBtn.disabled = !(photos.length>0 && champsOK());
+  sendBtn.disabled = !(photos.length>0 && champsOK() && reperesOK() && tailleTotale()<=LIMITE_TOTALE);
+}
+
+/* Construit le nom final de chaque fichier (porté par la pièce jointe) */
+function nomsFichiers(){
+  const v = lireValeurs();
+  const used = {};
+  return photos.map((p,idx)=>{
+    let base;
+    if(TYPE.reperes){
+      base = clean(p.repere) || ('photo_'+(idx+1));           // ex : TP_0
+    } else if(TYPE.nomBase){
+      base = clean(TYPE.nomBase(v)) + '_' + Date.now() + '_' + (idx+1); // ex : 2026-09-06_Matin_...
+    } else {
+      const n = v.nom ? clean(v.nom) : 'photo';
+      base = n + '_' + Date.now() + '_' + (idx+1);
+    }
+    // Unicité dans le lot
+    let name = base;
+    if(used[base]!==undefined){ used[base]++; name = base + '_' + used[base]; }
+    else { used[base] = 1; }
+    return name + '.jpg';
+  });
 }
 
 /* =========================================================
@@ -360,13 +419,11 @@ function majEtat(){
 sendBtn.addEventListener('click', async ()=>{
   if(!photos.length){ setStatusP('erreur',"⚠️ Ajoute d'abord des photos."); return; }
   if(!champsOK()){ setStatusP('erreur',"⚠️ Remplis les champs obligatoires (*)."); return; }
-  if(tailleTotale() > LIMITE_TOTALE){
-    setStatusP('erreur',"⚠️ Total > 10 Mo. Retire une photo avant d'envoyer."); return;
-  }
+  if(TYPE.reperes && !reperesOK()){ setStatusP('erreur',"⚠️ Choisis un repère pour chaque photo."); return; }
+  if(tailleTotale() > LIMITE_TOTALE){ setStatusP('erreur',"⚠️ Total > 10 Mo. Retire une photo."); return; }
 
   const v = lireValeurs();
-  const chemin  = TYPE.path(v);
-  const fichier = clean(TYPE.fichier(v));
+  const chemin = TYPE.path(v);
 
   const recap = TYPE.champs.map(c=>{
     const el=document.getElementById('f_'+c.id);
@@ -376,12 +433,13 @@ sendBtn.addEventListener('click', async ()=>{
   const texte =
 `#PHOTOPIGVS#
 #PATH:${chemin}#
-#FILE:${fichier}#
 Type: ${TYPE.titre}
 ${recap}
 Envoi: ${new Date().toLocaleString('fr-FR')}`;
 
-  const files = photos.map(p=>p.file);
+  // Chaque fichier porte SON nom -> Power Automate utilisera le nom de la pièce jointe
+  const noms = nomsFichiers();
+  const files = photos.map((p,idx)=> new File([p.file], noms[idx], {type:'image/jpeg'}));
 
   if(navigator.canShare && navigator.canShare({files})){
     try{
