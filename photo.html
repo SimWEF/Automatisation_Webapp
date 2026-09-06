@@ -21,8 +21,6 @@
     .btn-send:disabled { opacity:.5; }
     .btn-reset { width:100%; padding:14px; font-size:15px; font-weight:bold; border:2px solid #d93838;
       border-radius:12px; cursor:pointer; background:#fff; color:#d93838; margin-top:10px; }
-    /* Input masqué hors écran (PAS display:none) pour que 'change' se déclenche,
-       le <label> ouvre le sélecteur (fiable sur WebView Android) */
     #photoInput { position:absolute; width:1px; height:1px; padding:0; margin:-1px;
       overflow:hidden; clip:rect(0,0,0,0); border:0; }
     .champ { margin-bottom:12px; }
@@ -41,6 +39,9 @@
     .vignette .num { position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,.55);
       color:#fff; font-size:12px; text-align:center; padding:2px 0; }
     .compteur { font-size:14px; color:var(--muted,#5a6673); text-align:center; margin-top:10px; }
+    /* Barre de remplissage 10 Mo */
+    .jauge { height:8px; background:#e5e9ef; border-radius:6px; overflow:hidden; margin-top:8px; }
+    .jauge > div { height:100%; width:0%; background:#1f9d55; transition:width .2s, background .2s; }
     .chemin { font-size:12px; font-family:monospace; color:#083f78; background:#eef4fb;
       border-radius:8px; padding:8px; margin-top:10px; word-break:break-all; }
     .status { text-align:center; font-size:15px; font-weight:bold; padding:14px; border-radius:12px; margin-top:4px; display:none; }
@@ -76,6 +77,7 @@
       <label for="photoInput" class="btn-photo">📸 Prendre / ajouter des photos</label>
       <div id="galerie"></div>
       <div class="compteur" id="compteur"></div>
+      <div class="jauge"><div id="jaugeFill"></div></div>
     </div>
     <!-- Envoi -->
     <div class="card">
@@ -91,6 +93,11 @@
    CONFIGURATION GÉNÉRALE
    ========================================================= */
 const DESTINATAIRE = "souarns@westinghouse.com"; // <-- ton adresse dédiée
+
+/* ---- Compression & limite de taille ---- */
+const QUALITE_JPEG   = 0.30;                 // ~30% (comme demandé)
+const MAX_LARGEUR    = 1600;                 // redimension max du plus grand côté (px)
+const LIMITE_TOTALE  = 10 * 1024 * 1024;     // 10 Mo au total (sécurité envoi mail)
 
 const TYPES = {
   "colisage-conteneur": {
@@ -117,7 +124,7 @@ const TYPES = {
     titre:"📓 Cahier de quart",
     champs:[
       {id:"site",     label:"Site",     type:"json",  source:"Sites.json", req:true},
-      {id:"gv",       label:"GV",       type:"liste", options:["GV1","GV2","GV3","GV4"], req:true},
+      {id:"gv",       label:"GV",       type:"liste", options:["1","2","3","4"], req:true},
       {id:"activite", label:"Activité", type:"liste", options:["lançage","ETV"], req:true},
       {id:"date",     label:"Date",     type:"date",  req:true},
       {id:"poste",    label:"Poste",    type:"liste", options:["Matin","Après-midi","Nuit","Journée"], req:true}
@@ -129,7 +136,7 @@ const TYPES = {
     titre:"🔩 Portée de joint",
     champs:[
       {id:"site", label:"Site",            type:"json",  source:"Sites.json", req:true},
-      {id:"gv",   label:"GV",              type:"liste", options:["GV1","GV2","GV3","GV4"], req:true},
+      {id:"gv",   label:"GV",              type:"liste", options:["1","2","3","4"], req:true},
       {id:"sens", label:"Entrée / Sortie", type:"liste", options:["Entrée","Sortie"], req:true},
       {id:"nom",  label:"Nom de la photo", type:"text",  req:false}
     ],
@@ -159,7 +166,7 @@ const TYPES = {
 };
 
 /* =========================================================
-   RÉFÉRENCES DOM (déclarées AVANT toute utilisation)
+   RÉFÉRENCES DOM
    ========================================================= */
 const params = new URLSearchParams(location.search);
 const TYPE_ID = params.get('type');
@@ -173,6 +180,7 @@ let photos = [];
 const photoInput = document.getElementById('photoInput');
 const galerie    = document.getElementById('galerie');
 const compteur   = document.getElementById('compteur');
+const jaugeFill  = document.getElementById('jaugeFill');
 const sendBtn    = document.getElementById('sendBtn');
 const resetBtn   = document.getElementById('resetBtn');
 const statusPhoto= document.getElementById('statusPhoto');
@@ -181,12 +189,35 @@ const copyBtn    = document.getElementById('copyBtn');
 document.getElementById('mailDest').textContent = DESTINATAIRE;
 
 /* =========================================================
-   FONCTIONS UTILITAIRES
+   UTILITAIRES
    ========================================================= */
 function clean(s){ return (s||'').toString().trim().replace(/[\\\/:*?"<>|#]/g,'-'); }
-
 function setStatusP(t,m){ statusPhoto.className="status "+t; statusPhoto.innerHTML=m; }
 function clearStatusP(){ statusPhoto.className="status"; statusPhoto.innerHTML=""; }
+function tailleTotale(){ return photos.reduce((s,p)=>s+p.file.size,0); }
+function fmtMo(o){ return (o/1048576).toFixed(1); }
+
+/* Compresse une image (redimension + qualité JPEG) -> renvoie un Blob */
+function compresser(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onerror=()=>reject("lecture impossible");
+    reader.onload=ev=>{
+      const img=new Image();
+      img.onerror=()=>reject("image invalide");
+      img.onload=()=>{
+        const ratio=Math.min(1, MAX_LARGEUR/Math.max(img.width,img.height));
+        const canvas=document.createElement('canvas');
+        canvas.width =Math.round(img.width *ratio);
+        canvas.height=Math.round(img.height*ratio);
+        canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+        canvas.toBlob(b=> b ? resolve(b) : reject("compression échouée"), 'image/jpeg', QUALITE_JPEG);
+      };
+      img.src=ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 /* =========================================================
    CONSTRUCTION DES CHAMPS
@@ -246,7 +277,7 @@ function champsOK(){
 }
 
 /* =========================================================
-   PHOTOS
+   PHOTOS : ajout + compression + limite 10 Mo
    ========================================================= */
 copyBtn.addEventListener('click', async ()=>{
   try{ await navigator.clipboard.writeText(DESTINATAIRE); }
@@ -255,15 +286,39 @@ copyBtn.addEventListener('click', async ()=>{
   copyBtn.textContent="Copié ✅"; setTimeout(()=>copyBtn.textContent="Copier",1800);
 });
 
-photoInput.addEventListener('change', e=>{
+photoInput.addEventListener('change', async e=>{
   const fichiers = Array.from(e.target.files || []);
-  if(!fichiers.length){ setStatusP('erreur',"⚠️ Aucune photo reçue. Réessaie."); return; }
-  fichiers.forEach(f=>{
-    photos.push({ file:f, url:URL.createObjectURL(f) });
-  });
-  clearStatusP();
-  setStatusP('info', fichiers.length+" photo(s) ajoutée(s).");
+  photoInput.value="";
+  if(!fichiers.length) return;
+
+  setStatusP('info','⏳ Compression en cours…');
+  let ajoutees=0, refusees=0;
+
+  for(const f of fichiers){
+    let blob;
+    try { blob = await compresser(f); }
+    catch(err){ console.error(err); refusees++; continue; }
+
+    // Contrôle de la limite totale AVANT d'ajouter
+    if(tailleTotale() + blob.size > LIMITE_TOTALE){
+      refusees++;
+      continue;
+    }
+    const nom = `photo_${photos.length+1}_${Date.now()}.jpg`;
+    const file = new File([blob], nom, {type:'image/jpeg'});
+    photos.push({ file, url: URL.createObjectURL(file) });
+    ajoutees++;
+  }
+
   rendreGalerie();
+
+  if(refusees>0){
+    setStatusP('erreur',
+      `⚠️ ${ajoutees} ajoutée(s), ${refusees} refusée(s) : limite de 10 Mo atteinte. `+
+      `Envoie ce lot puis recommence pour les suivantes.`);
+  } else {
+    setStatusP('info', `✅ ${ajoutees} photo(s) ajoutée(s) et compressée(s).`);
+  }
 });
 
 function rendreGalerie(){
@@ -277,8 +332,15 @@ function rendreGalerie(){
   galerie.querySelectorAll('.suppr').forEach(b=>b.addEventListener('click',()=>{
     const i=+b.dataset.i; URL.revokeObjectURL(photos[i].url); photos.splice(i,1); rendreGalerie();
   }));
-  const total=photos.reduce((s,p)=>s+p.file.size,0);
-  compteur.textContent = photos.length ? `${photos.length} photo(s) · ~${(total/1048576).toFixed(1)} Mo` : "";
+
+  const total=tailleTotale();
+  const pct = Math.min(100, Math.round(total/LIMITE_TOTALE*100));
+  compteur.textContent = photos.length
+    ? `${photos.length} photo(s) · ${fmtMo(total)} / 10 Mo`
+    : "";
+  jaugeFill.style.width = pct + '%';
+  jaugeFill.style.background = pct >= 90 ? '#d93838' : (pct >= 70 ? '#e8a13a' : '#1f9d55');
+
   resetBtn.style.display = photos.length ? 'block':'none';
   majEtat();
 }
@@ -298,6 +360,9 @@ function majEtat(){
 sendBtn.addEventListener('click', async ()=>{
   if(!photos.length){ setStatusP('erreur',"⚠️ Ajoute d'abord des photos."); return; }
   if(!champsOK()){ setStatusP('erreur',"⚠️ Remplis les champs obligatoires (*)."); return; }
+  if(tailleTotale() > LIMITE_TOTALE){
+    setStatusP('erreur',"⚠️ Total > 10 Mo. Retire une photo avant d'envoyer."); return;
+  }
 
   const v = lireValeurs();
   const chemin  = TYPE.path(v);
@@ -337,7 +402,7 @@ resetBtn.addEventListener('click',()=>{
 });
 
 /* =========================================================
-   INITIALISATION (tout en bas, une fois TOUT déclaré)
+   INITIALISATION (tout en bas)
    ========================================================= */
 if(!TYPE){
   titrePage.textContent = "⚠️ Type inconnu";
