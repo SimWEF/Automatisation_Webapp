@@ -21,8 +21,10 @@
     .btn-send:disabled { opacity:.5; }
     .btn-reset { width:100%; padding:14px; font-size:15px; font-weight:bold; border:2px solid #d93838;
       border-radius:12px; cursor:pointer; background:#fff; color:#d93838; margin-top:10px; }
-    /* ✅ Input caché SANS display:none (compatibilité WebView Android) */
-    #photoInput { position:absolute; left:-9999px; width:1px; height:1px; opacity:0; }
+    /* ✅ Input masqué hors écran (PAS display:none) pour que 'change' se déclenche
+       tout en laissant le <label> ouvrir le sélecteur (compatible WebView Android) */
+    #photoInput { position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+      overflow:hidden; clip:rect(0,0,0,0); border:0; }
     .champ { margin-bottom:12px; }
     .champ label { display:block; font-weight:bold; margin-bottom:6px; font-size:15px; }
     .champ .req { color:#d93838; }
@@ -70,9 +72,9 @@
     <!-- Photos -->
     <div class="card">
       <label>2. Ajouter des photos</label>
-      <!-- ✅ input hors écran + bouton qui le déclenche -->
+      <!-- ✅ le <label> ouvre le sélecteur (fiable sur WebView), l'input reste dans le flux -->
       <input type="file" accept="image/*" multiple id="photoInput">
-      <button type="button" id="btnPickPhoto" class="btn-photo">📸 Prendre / ajouter des photos</button>
+      <label for="photoInput" class="btn-photo">📸 Prendre / ajouter des photos</label>
       <div id="galerie"></div>
       <div class="compteur" id="compteur"></div>
     </div>
@@ -242,7 +244,6 @@ function champsOK(){
    ========================================================= */
 let photos = [];
 const photoInput = document.getElementById('photoInput');
-const btnPickPhoto = document.getElementById('btnPickPhoto');
 const galerie    = document.getElementById('galerie');
 const compteur   = document.getElementById('compteur');
 const sendBtn    = document.getElementById('sendBtn');
@@ -253,9 +254,6 @@ const copyBtn    = document.getElementById('copyBtn');
 function setStatusP(t,m){ statusPhoto.className="status "+t; statusPhoto.innerHTML=m; }
 function clearStatusP(){ statusPhoto.className="status"; statusPhoto.innerHTML=""; }
 
-/* ✅ le bouton déclenche l'ouverture du sélecteur */
-btnPickPhoto.addEventListener('click', ()=> photoInput.click());
-
 copyBtn.addEventListener('click', async ()=>{
   try{ await navigator.clipboard.writeText(DESTINATAIRE); }
   catch(err){ const t=document.createElement('textarea'); t.value=DESTINATAIRE;
@@ -264,12 +262,15 @@ copyBtn.addEventListener('click', async ()=>{
 });
 
 photoInput.addEventListener('change', e=>{
-  Array.from(e.target.files).forEach(f=>{
-    const nom=`photo_${photos.length+1}_${Date.now()}.jpg`;
-    const file=new File([f], nom, {type:f.type||'image/jpeg'});
-    photos.push({file, url:URL.createObjectURL(file)});
+  const fichiers = Array.from(e.target.files || []);
+  if(!fichiers.length){ setStatusP('erreur',"⚠️ Aucune photo reçue. Réessaie."); return; }
+  fichiers.forEach(f=>{
+    // On garde le File d'origine (plus robuste sur WebView Android que new File(...))
+    photos.push({ file:f, url:URL.createObjectURL(f) });
   });
-  photoInput.value=""; clearStatusP(); rendreGalerie();
+  clearStatusP();
+  setStatusP('info', fichiers.length+" photo(s) ajoutée(s).");
+  rendreGalerie();
 });
 
 function rendreGalerie(){
