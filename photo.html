@@ -49,7 +49,7 @@
 </head>
 <body>
   <header class="app-header">
-    <a class="back" href="photo.html">‹</a>
+    <a class="back" href="photos.html">‹</a>
     <h1 id="titrePage">📷 Photo</h1>
   </header>
 
@@ -281,6 +281,7 @@ copyBtn.addEventListener('click', async ()=>{
 });
 
 photoInput.addEventListener('change', e=>{
+  alert("Photo sélectionnée");
   Array.from(e.target.files).forEach(f=>{
     const nom=`photo_${photos.length+1}_${Date.now()}.jpg`;
     const file=new File([f], nom, {type:f.type||'image/jpeg'});
