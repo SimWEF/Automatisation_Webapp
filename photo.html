@@ -15,7 +15,7 @@
     .btn-photo { display:flex; align-items:center; justify-content:center; gap:8px; width:100%;
       padding:18px; font-size:17px; font-weight:bold; border:none; border-radius:12px; cursor:pointer;
       background:#0078D7; color:#fff; }
-    .btn-gal { background:#4b5563; }   /* bouton galerie : gris ardoise */
+    .btn-gal { background:#4b5563; }
     .btns-photo { display:flex; flex-direction:column; gap:10px; }
     .btn-send { display:flex; align-items:center; justify-content:center; gap:10px; width:100%;
       padding:18px; font-size:18px; font-weight:bold; border:none; border-radius:12px; cursor:pointer;
@@ -45,8 +45,9 @@
       border-radius:10px; padding:8px; }
     #galerie.liste .ligne img { width:64px; height:64px; object-fit:cover; border-radius:8px; flex:0 0 auto; }
     #galerie.liste .ligne .rep { flex:1; }
-    #galerie.liste .ligne .rep select { padding:10px; font-size:15px; }
-    #galerie.liste .ligne .rep.manquant select { border-color:#d93838; background:#fff5f5; }
+    #galerie.liste .ligne .rep select, #galerie.liste .ligne .rep input { padding:10px; font-size:15px; }
+    #galerie.liste .ligne .rep.manquant select,
+    #galerie.liste .ligne .rep.manquant input { border-color:#d93838; background:#fff5f5; }
     #galerie.liste .ligne .suppr { width:34px; height:34px; background:#fff; color:#d93838;
       border:2px solid #d93838; border-radius:50%; font-size:16px; font-weight:bold; cursor:pointer; flex:0 0 auto; }
     .compteur { font-size:14px; color:var(--muted,#5a6673); text-align:center; margin-top:10px; }
@@ -66,7 +67,6 @@
     <h1 id="titrePage">📷 Photo</h1>
   </header>
   <div class="container">
-    <!-- Adresse de destination -->
     <div class="card">
       <label>📧 Adresse de destination</label>
       <div class="adresse-bloc">
@@ -75,27 +75,23 @@
       </div>
       <div class="compteur">Colle cette adresse dans le champ « À » de ton mail.</div>
     </div>
-    <!-- Paramètres (générés dynamiquement) -->
     <div class="card">
       <label>1. Renseigner les informations</label>
       <div id="champs"></div>
     </div>
-    <!-- Photos -->
     <div class="card">
       <label>2. Ajouter des photos</label>
-      <!-- Deux entrées distinctes : appareil photo VS galerie -->
       <input type="file" accept="image/*" capture="environment" id="camInput">
       <input type="file" accept="image/*" multiple id="galInput">
       <div class="btns-photo">
         <label for="camInput" class="btn-photo">📸 Prendre une photo</label>
         <label for="galInput" class="btn-photo btn-gal">🖼️ Choisir dans la galerie</label>
       </div>
-      <div id="aide-repere" class="compteur" style="display:none">Choisis un repère sous chaque photo (il servira de nom de fichier).</div>
+      <div id="aide-nom" class="compteur" style="display:none"></div>
       <div id="galerie" class="grid"></div>
       <div class="compteur" id="compteur"></div>
       <div class="jauge"><div id="jaugeFill"></div></div>
     </div>
-    <!-- Envoi -->
     <div class="card">
       <label>3. Envoyer</label>
       <div class="chemin" id="apercuChemin">Destination : …</div>
@@ -108,8 +104,7 @@
 /* =========================================================
    CONFIGURATION GÉNÉRALE
    ========================================================= */
-const DESTINATAIRE = "souarns@westinghouse.com"; // <-- ton adresse dédiée
-
+const DESTINATAIRE = "souarns@westinghouse.com";
 const QUALITE_JPEG   = 0.90;
 const MAX_LARGEUR    = 2500;
 const LIMITE_TOTALE  = 10 * 1024 * 1024;
@@ -118,20 +113,19 @@ const TYPES = {
   "colisage-conteneur": {
     titre:"📦 Colisage conteneur",
     champs:[
-      {id:"site",      label:"Site",            type:"json",  source:"Sites.json",      req:true},
-      {id:"conteneur", label:"Conteneur",       type:"json",  source:"Conteneurs.json", req:true},
-      {id:"nom",       label:"Nom de la photo", type:"text",  req:false}
+      {id:"site",      label:"Site",      type:"json", source:"Sites.json",      req:true},
+      {id:"conteneur", label:"Conteneur", type:"json", source:"Conteneurs.json", req:true}
     ],
-    path:v=>`photo-PIGVS/${v.site}/Colisage conteneur/${v.conteneur}`
+    path:v=>`photo-PIGVS/${v.site}/Colisage conteneur/${v.conteneur}`,
+    nomPhoto:{ type:"text", label:"Nom de la photo (facultatif)", req:false }
   },
   "colisage-caisse": {
     titre:"🧰 Colisage caisse",
     champs:[
-      {id:"site",   label:"Site",            type:"json", source:"Sites.json",   req:true},
-      {id:"caisse", label:"Caisse",          type:"json", source:"Caisses.json", req:true},
-      {id:"nom",    label:"Nom de la photo", type:"text", req:false}
+      {id:"site", label:"Site", type:"json", source:"Sites.json", req:true}
     ],
-    path:v=>`photo-PIGVS/${v.site}/Colisage caisse/${v.caisse}`
+    path:v=>`photo-PIGVS/${v.site}/Colisage caisse`,
+    nomPhoto:{ type:"json", source:"Caisses.json", label:"Caisse (facultatif)", req:false }
   },
   "cahier-quart": {
     titre:"📓 Cahier de quart",
@@ -143,7 +137,8 @@ const TYPES = {
       {id:"poste",    label:"Poste",    type:"liste", options:["Matin","Après-midi","Nuit","Journée"], req:true}
     ],
     path:v=>`photo-PIGVS/${v.site}/Cahier de quart/${v.gv}/${v.activite}`,
-    nomBase:v=>`${v.date}_${v.poste}`
+    nomBase:v=>`${v.date}_${v.poste}`,
+    nomPhoto:{ type:"text", label:"Nom de la photo (facultatif)", req:false }
   },
   "portee-joint": {
     titre:"🔩 Portée de joint",
@@ -153,32 +148,32 @@ const TYPES = {
       {id:"sens", label:"Entrée / Sortie", type:"liste", options:["Entrée","Sortie"], req:true}
     ],
     path:v=>`photo-PIGVS/${v.site}/Portées de joint/${v.gv}/${v.sens}`,
-    reperes:[
+    nomPhoto:{ type:"liste", label:"Repère", req:true, options:[
       {label:"TP 0",     value:"TP_0"},
       {label:"TP 180",   value:"TP_180"},
       {label:"TO 0DG",   value:"TO_0DG"},
       {label:"TO 180DD", value:"TO_180DD"},
       {label:"TO 90",    value:"TO_90"},
       {label:"TO 270",   value:"TO_270"}
-    ]
+    ]}
   },
   "condition-acces": {
     titre:"🚪 Condition d'accès",
     champs:[
-      {id:"site",        label:"Site",            type:"json",     source:"Sites.json", req:true},
-      {id:"commentaire", label:"Commentaire",     type:"textarea", req:false},
-      {id:"nom",         label:"Nom de la photo", type:"text",     req:false}
+      {id:"site",        label:"Site",        type:"json",     source:"Sites.json", req:true},
+      {id:"commentaire", label:"Commentaire", type:"textarea", req:false}
     ],
-    path:v=>`photo-PIGVS/${v.site}/Conditions d'accès`
+    path:v=>`photo-PIGVS/${v.site}/Conditions d'accès`,
+    nomPhoto:{ type:"text", label:"Nom de la photo (facultatif)", req:false }
   },
   "autre": {
     titre:"🗂️ Autre",
     champs:[
-      {id:"site",        label:"Site",            type:"json",     source:"Sites.json", req:true},
-      {id:"commentaire", label:"Commentaire",     type:"textarea", req:false},
-      {id:"nom",         label:"Nom de la photo", type:"text",     req:false}
+      {id:"site",        label:"Site",        type:"json",     source:"Sites.json", req:true},
+      {id:"commentaire", label:"Commentaire", type:"textarea", req:false}
     ],
-    path:v=>`photo-PIGVS/${v.site}/Autre`
+    path:v=>`photo-PIGVS/${v.site}/Autre`,
+    nomPhoto:{ type:"text", label:"Nom de la photo (facultatif)", req:false }
   }
 };
 
@@ -192,9 +187,11 @@ const TYPE = TYPES[TYPE_ID];
 const champsDiv    = document.getElementById('champs');
 const titrePage    = document.getElementById('titrePage');
 const apercuChemin = document.getElementById('apercuChemin');
-const aideRepere   = document.getElementById('aide-repere');
+const aideNom      = document.getElementById('aide-nom');
 
 let photos = [];
+let nomPhotoOptions = [];
+
 const camInput   = document.getElementById('camInput');
 const galInput   = document.getElementById('galInput');
 const galerie    = document.getElementById('galerie');
@@ -211,6 +208,7 @@ document.getElementById('mailDest').textContent = DESTINATAIRE;
    UTILITAIRES
    ========================================================= */
 function clean(s){ return (s||'').toString().trim().replace(/[\\\/:*?"<>|#]/g,'-'); }
+function escAttr(s){ return (s||'').toString().replace(/"/g,'"'); }
 function setStatusP(t,m){ statusPhoto.className="status "+t; statusPhoto.innerHTML=m; }
 function clearStatusP(){ statusPhoto.className="status"; statusPhoto.innerHTML=""; }
 function tailleTotale(){ return photos.reduce((s,p)=>s+p.file.size,0); }
@@ -276,8 +274,23 @@ function construireChamps(){
     el.addEventListener('change', majEtat);
   });
 
-  if(TYPE.reperes){ galerie.className='liste'; aideRepere.style.display='block'; }
-  else            { galerie.className='grid';  aideRepere.style.display='none';  }
+  if(TYPE.nomPhoto && TYPE.nomPhoto.type==='json'){
+    fetch(TYPE.nomPhoto.source).then(r=>r.json()).then(list=>{
+      nomPhotoOptions = list;
+      rendreGalerie();
+    }).catch(()=>{ nomPhotoOptions = []; });
+  }
+
+  if(TYPE.nomPhoto){
+    galerie.className='liste';
+    aideNom.style.display='block';
+    aideNom.textContent = TYPE.nomPhoto.req
+      ? "Choisis une valeur sous chaque photo (elle servira de nom de fichier)."
+      : "Tu peux nommer chaque photo (facultatif). Sinon un nom automatique est utilisé.";
+  } else {
+    galerie.className='grid';
+    aideNom.style.display='none';
+  }
   majEtat();
 }
 
@@ -297,13 +310,13 @@ function champsOK(){
   });
 }
 
-function reperesOK(){
-  if(!TYPE.reperes) return true;
-  return photos.length>0 && photos.every(p=>p.repere && p.repere.trim()!=='');
+function nomPhotoOK(){
+  if(!TYPE.nomPhoto || !TYPE.nomPhoto.req) return true;
+  return photos.length>0 && photos.every(p=>p.nom && p.nom.trim()!=='');
 }
 
 /* =========================================================
-   PHOTOS : ajout + compression + limite 10 Mo
+   PHOTOS
    ========================================================= */
 copyBtn.addEventListener('click', async ()=>{
   try{ await navigator.clipboard.writeText(DESTINATAIRE); }
@@ -312,7 +325,6 @@ copyBtn.addEventListener('click', async ()=>{
   copyBtn.textContent="Copié ✅"; setTimeout(()=>copyBtn.textContent="Copier",1800);
 });
 
-/* Traitement commun aux deux entrées (appareil photo / galerie) */
 async function traiterFichiers(fichiers){
   if(!fichiers.length) return;
   setStatusP('info','⏳ Compression en cours…');
@@ -323,46 +335,53 @@ async function traiterFichiers(fichiers){
     catch(err){ console.error(err); refusees++; continue; }
     if(tailleTotale() + blob.size > LIMITE_TOTALE){ refusees++; continue; }
     const file = new File([blob], `tmp_${Date.now()}.jpg`, {type:'image/jpeg'});
-    photos.push({ file, url: URL.createObjectURL(file), repere:'' });
+    photos.push({ file, url: URL.createObjectURL(file), nom:'' });
     ajoutees++;
   }
   rendreGalerie();
-  if(refusees>0){
-    setStatusP('erreur', `⚠️ ${ajoutees} ajoutée(s), ${refusees} refusée(s) : limite de 10 Mo atteinte.`);
-  } else {
-    setStatusP('info', `✅ ${ajoutees} photo(s) ajoutée(s).`);
-  }
+  if(refusees>0) setStatusP('erreur', `⚠️ ${ajoutees} ajoutée(s), ${refusees} refusée(s) : limite de 10 Mo atteinte.`);
+  else setStatusP('info', `✅ ${ajoutees} photo(s) ajoutée(s).`);
 }
 
-camInput.addEventListener('change', async e=>{
-  const fichiers = Array.from(e.target.files || []);
-  camInput.value="";
-  await traiterFichiers(fichiers);
-});
-galInput.addEventListener('change', async e=>{
-  const fichiers = Array.from(e.target.files || []);
-  galInput.value="";
-  await traiterFichiers(fichiers);
-});
+camInput.addEventListener('change', async e=>{ const f=Array.from(e.target.files||[]); camInput.value=""; await traiterFichiers(f); });
+galInput.addEventListener('change', async e=>{ const f=Array.from(e.target.files||[]); galInput.value=""; await traiterFichiers(f); });
+
+function champNomPhoto(p, i){
+  const np = TYPE.nomPhoto;
+  if(np.type==='text'){
+    return `<input type="text" data-i="${i}" placeholder="${escAttr(np.label)}" value="${escAttr(p.nom)}">`;
+  }
+  let opts = `<option value="">— ${np.req ? 'choisir' : 'facultatif'} —</option>`;
+  if(np.type==='json'){
+    opts += nomPhotoOptions.map(o=>`<option value="${escAttr(o)}" ${p.nom===o?'selected':''}>${o}</option>`).join('');
+  } else {
+    opts += np.options.map(o=>`<option value="${o.value}" ${p.nom===o.value?'selected':''}>${o.label}</option>`).join('');
+  }
+  return `<select data-i="${i}">${opts}</select>`;
+}
 
 function rendreGalerie(){
   galerie.innerHTML="";
-  if(TYPE.reperes){
+
+  if(TYPE.nomPhoto){
     photos.forEach((p,i)=>{
-      const opts = `<option value="">— repère —</option>` +
-        TYPE.reperes.map(r=>`<option value="${r.value}" ${p.repere===r.value?'selected':''}>${r.label}</option>`).join('');
-      const manquant = p.repere ? '' : ' manquant';
+      const manquant = (TYPE.nomPhoto.req && !p.nom) ? ' manquant' : '';
       const ligne=document.createElement('div'); ligne.className='ligne';
       ligne.innerHTML =
         `<img src="${p.url}">
-         <div class="rep${manquant}"><select data-i="${i}">${opts}</select></div>
+         <div class="rep${manquant}">${champNomPhoto(p,i)}</div>
          <button class="suppr" data-i="${i}">×</button>`;
       galerie.appendChild(ligne);
     });
-    galerie.querySelectorAll('select').forEach(sel=>sel.addEventListener('change',()=>{
-      photos[+sel.dataset.i].repere = sel.value;
-      rendreGalerie();
-    }));
+    galerie.querySelectorAll('.rep input, .rep select').forEach(el=>{
+      const evt = el.tagName==='SELECT' ? 'change' : 'input';
+      el.addEventListener(evt, ()=>{
+        const i = +el.dataset.i;
+        photos[i].nom = el.value;
+        if(TYPE.nomPhoto.req){ el.closest('.rep').classList.toggle('manquant', !el.value); }
+        majEtat();
+      });
+    });
   } else {
     photos.forEach((p,i)=>{
       const div=document.createElement('div'); div.className='vignette';
@@ -371,6 +390,7 @@ function rendreGalerie(){
       galerie.appendChild(div);
     });
   }
+
   galerie.querySelectorAll('.suppr').forEach(b=>b.addEventListener('click',()=>{
     const i=+b.dataset.i; URL.revokeObjectURL(photos[i].url); photos.splice(i,1); rendreGalerie();
   }));
@@ -390,7 +410,7 @@ function majEtat(){
   let chemin="…";
   try{ chemin = TYPE.path(v); }catch(e){}
   apercuChemin.textContent = "Destination : /"+chemin;
-  sendBtn.disabled = !(photos.length>0 && champsOK() && reperesOK() && tailleTotale()<=LIMITE_TOTALE);
+  sendBtn.disabled = !(photos.length>0 && champsOK() && nomPhotoOK() && tailleTotale()<=LIMITE_TOTALE);
 }
 
 function nomsFichiers(){
@@ -398,13 +418,12 @@ function nomsFichiers(){
   const used = {};
   return photos.map((p,idx)=>{
     let base;
-    if(TYPE.reperes){
-      base = clean(p.repere) || ('photo_'+(idx+1));
+    if(TYPE.nomPhoto && p.nom && p.nom.trim()!==''){
+      base = clean(p.nom);
     } else if(TYPE.nomBase){
       base = clean(TYPE.nomBase(v)) + '_' + Date.now() + '_' + (idx+1);
     } else {
-      const n = v.nom ? clean(v.nom) : 'photo';
-      base = n + '_' + Date.now() + '_' + (idx+1);
+      base = 'photo_' + Date.now() + '_' + (idx+1);
     }
     let name = base;
     if(used[base]!==undefined){ used[base]++; name = base + '_' + used[base]; }
@@ -419,7 +438,7 @@ function nomsFichiers(){
 sendBtn.addEventListener('click', async ()=>{
   if(!photos.length){ setStatusP('erreur',"⚠️ Ajoute d'abord des photos."); return; }
   if(!champsOK()){ setStatusP('erreur',"⚠️ Remplis les champs obligatoires (*)."); return; }
-  if(TYPE.reperes && !reperesOK()){ setStatusP('erreur',"⚠️ Choisis un repère pour chaque photo."); return; }
+  if(TYPE.nomPhoto && TYPE.nomPhoto.req && !nomPhotoOK()){ setStatusP('erreur',"⚠️ Renseigne le champ sous chaque photo."); return; }
   if(tailleTotale() > LIMITE_TOTALE){ setStatusP('erreur',"⚠️ Total > 10 Mo. Retire une photo."); return; }
 
   const v = lireValeurs();
@@ -458,7 +477,7 @@ resetBtn.addEventListener('click',()=>{
 });
 
 /* =========================================================
-   INITIALISATION (tout en bas)
+   INITIALISATION
    ========================================================= */
 if(!TYPE){
   titrePage.textContent = "⚠️ Type inconnu";
