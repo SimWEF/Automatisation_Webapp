@@ -9,12 +9,42 @@
   <meta name="theme-color" content="#0078D7">
   <link rel="apple-touch-icon" href="icon-192.png">
   <style>
-    .soon { text-align:center; padding:40px 20px; }
-    .soon .emoji { font-size:64px; }
-    .soon h2 { margin:16px 0 8px; font-size:22px; }
-    .soon p { color:var(--muted,#5a6673); font-size:15px; max-width:340px; margin:0 auto; }
-    .soon .badge { display:inline-block; margin-top:20px; padding:8px 16px; border-radius:20px;
-      background:#eef4fb; color:#083f78; font-weight:bold; font-size:14px; }
+    .kpi-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
+    .kpi { background:#fff; border:1px solid #e0e0e0; border-radius:12px; padding:14px; text-align:center; }
+    .kpi .val { font-size:24px; font-weight:800; color:#0078D7; }
+    .kpi .lab { font-size:12px; color:#5a6673; margin-top:2px; }
+
+    .section-titre { font-size:15px; font-weight:700; margin:18px 0 8px; color:#334; display:flex; align-items:center; gap:8px; }
+
+    /* Planning */
+    .planning { background:#fff; border:1px solid #e0e0e0; border-radius:12px; padding:6px 14px; }
+    .step { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid #eef0f3; }
+    .step:last-child { border-bottom:0; }
+    .step .dot { width:16px; height:16px; border-radius:50%; flex:0 0 auto; border:3px solid #d0d7de; background:#fff; }
+    .step.done .dot { background:#1f9d55; border-color:#1f9d55; }
+    .step.current .dot { background:#0078D7; border-color:#0078D7; box-shadow:0 0 0 4px rgba(0,120,215,.18); }
+    .step .txt { flex:1; }
+    .step .nom { font-weight:700; font-size:15px; }
+    .step .sous { font-size:12px; color:#5a6673; }
+    .step .tag { font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; }
+    .tag.done { background:#e4f6ec; color:#166534; }
+    .tag.current { background:#e7f0fb; color:#083f78; }
+    .tag.todo { background:#f1f3f5; color:#8a94a1; }
+
+    .barre { height:10px; background:#e5e9ef; border-radius:6px; overflow:hidden; margin:6px 0 2px; }
+    .barre > div { height:100%; background:#1f9d55; }
+
+    /* Alertes / infos importantes */
+    .alerte { display:flex; gap:12px; background:#fff; border:1px solid #e0e0e0; border-left:5px solid #999;
+      border-radius:10px; padding:12px 14px; margin-bottom:10px; }
+    .alerte.rouge  { border-left-color:#d93838; }
+    .alerte.orange { border-left-color:#e8a13a; }
+    .alerte.bleu   { border-left-color:#0078D7; }
+    .alerte .ico { font-size:22px; }
+    .alerte .titre { font-weight:700; font-size:15px; }
+    .alerte .desc { font-size:13px; color:#5a6673; margin-top:2px; }
+
+    .maj { text-align:center; font-size:12px; color:#8a94a1; margin-top:20px; }
   </style>
 </head>
 <body>
@@ -23,12 +53,75 @@
     <h1>ℹ️ Infos chantier</h1>
   </header>
   <div class="container">
-    <div class="soon">
-      <div class="emoji">🚧</div>
-      <h2>Fonctionnalité à venir…</h2>
-      <p>Cet espace regroupera bientôt les informations importantes et spécifiques au chantier, à ne pas manquer pour les opérateurs.</p>
-      <div class="badge">⏳ En cours de développement</div>
+
+    <!-- Bandeau chantier -->
+    <div class="kpi" style="text-align:left; margin-bottom:16px;">
+      <div style="font-size:18px;font-weight:800;color:#083f78">🏭 CNPE Nivelles — GV1 / GV2</div>
+      <div style="font-size:13px;color:#5a6673;margin-top:2px">Opération PIGVS · WEF-25-ETV-MTN-NIV</div>
     </div>
+
+    <!-- KPI -->
+    <div class="kpi-row">
+      <div class="kpi"><div class="val">62%</div><div class="lab">Avancement global</div></div>
+      <div class="kpi"><div class="val">J+14</div><div class="lab">Jour de chantier</div></div>
+      <div class="kpi"><div class="val">18/07</div><div class="lab">Fin prévisionnelle</div></div>
+      <div class="kpi"><div class="val">3</div><div class="lab">Infos importantes</div></div>
+    </div>
+
+    <!-- Planning -->
+    <div class="section-titre">📅 Avancement de l'opération</div>
+    <div class="barre"><div style="width:62%"></div></div>
+    <div class="planning">
+      <div class="step done">
+        <div class="dot"></div>
+        <div class="txt"><div class="nom">Montage & installation</div><div class="sous">Terminé le 28/06</div></div>
+        <div class="tag done">Fait</div>
+      </div>
+      <div class="step done">
+        <div class="dot"></div>
+        <div class="txt"><div class="nom">Essais à blanc</div><div class="sous">Terminé le 02/07</div></div>
+        <div class="tag done">Fait</div>
+      </div>
+      <div class="step current">
+        <div class="dot"></div>
+        <div class="txt"><div class="nom">Lançage GV1</div><div class="sous">En cours · ~70%</div></div>
+        <div class="tag current">En cours</div>
+      </div>
+      <div class="step">
+        <div class="dot"></div>
+        <div class="txt"><div class="nom">Lançage GV2</div><div class="sous">Prévu 12/07</div></div>
+        <div class="tag todo">À venir</div>
+      </div>
+      <div class="step">
+        <div class="dot"></div>
+        <div class="txt"><div class="nom">Repli & démontage</div><div class="sous">Prévu 16/07</div></div>
+        <div class="tag todo">À venir</div>
+      </div>
+    </div>
+
+    <!-- Infos importantes -->
+    <div class="section-titre">⚠️ Informations importantes</div>
+
+    <div class="alerte rouge">
+      <div class="ico">🛗</div>
+      <div><div class="titre">Ascenseur en panne</div>
+      <div class="desc">Utiliser l'escalier zone Est. Intervention prévue le 10/07.</div></div>
+    </div>
+
+    <div class="alerte orange">
+      <div class="ico">🔧</div>
+      <div><div class="titre">Privilégier l'utilisation du CART 5</div>
+      <div class="desc">Le CART 2 est en cours de vérification (chez ECA).</div></div>
+    </div>
+
+    <div class="alerte bleu">
+      <div class="ico">📄</div>
+      <div><div class="titre">Étape de lançage modifiée</div>
+      <div class="desc">Nouvelle séquence à appliquer — voir Fiche de Correction FC 01.</div></div>
+    </div>
+
+    <div class="maj">Dernière mise à jour : 04/07/2026 — 07:30 · Chef de projet</div>
+
   </div>
 </body>
 </html>
