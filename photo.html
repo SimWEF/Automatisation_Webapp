@@ -109,16 +109,14 @@ const QUALITE_JPEG   = 0.90;
 const MAX_LARGEUR    = 2500;
 const LIMITE_TOTALE  = 10 * 1024 * 1024;
 
-const GV_OPTIONS = ["GV1","GV2","GV3","GV4"];
-
 const TYPES = {
   "colisage-conteneur": {
     titre:"📦 Colisage conteneur",
     champs:[
       {id:"site",      label:"Site",      type:"json", source:"Sites.json",      req:true},
-      {id:"conteneur", label:"Conteneur", type:"json", source:"Conteneurs.json", req:true}
+      {id:"conteneur", label:"Conteneur", type:"json", source:"conteneurs.json", req:true}
     ],
-    path:v=>`photo-PIGVS/${v.site}/1- Colisage conteneur/${v.conteneur}`,
+    path:v=>`photo-PIGVS/${v.site}/Colisage conteneur/${v.conteneur}`,
     nomPhoto:{ type:"text", label:"Nom de la photo (facultatif)", req:false }
   },
   "colisage-caisse": {
@@ -126,19 +124,19 @@ const TYPES = {
     champs:[
       {id:"site", label:"Site", type:"json", source:"Sites.json", req:true}
     ],
-    path:v=>`photo-PIGVS/${v.site}/2- Colisage caisse`,
-    nomPhoto:{ type:"json", source:"Caisses.json", label:"Caisse (facultatif)", req:false }
+    path:v=>`photo-PIGVS/${v.site}/Colisage caisse`,
+    nomPhoto:{ type:"json", source:"caisses.json", label:"Caisse (facultatif)", req:false }
   },
   "cahier-quart": {
     titre:"📓 Cahier de quart",
     champs:[
       {id:"site",     label:"Site",     type:"json",  source:"Sites.json", req:true},
-      {id:"gv",       label:"GV",       type:"liste", options:GV_OPTIONS, req:true},
+      {id:"gv",       label:"GV",       type:"liste", options:["1","2","3","4"], req:true},
       {id:"activite", label:"Activité", type:"liste", options:["lançage","ETV"], req:true},
       {id:"date",     label:"Date",     type:"date",  req:true},
       {id:"poste",    label:"Poste",    type:"liste", options:["Matin","Après-midi","Nuit","Journée"], req:true}
     ],
-    path:v=>`photo-PIGVS/${v.site}/3- Cahier de quart/${v.gv}/${v.activite}`,
+    path:v=>`photo-PIGVS/${v.site}/Cahier de quart/${v.gv}/${v.activite}`,
     nomBase:v=>`${v.date}_${v.poste}`,
     nomPhoto:{ type:"text", label:"Nom de la photo (facultatif)", req:false }
   },
@@ -146,10 +144,10 @@ const TYPES = {
     titre:"🔩 Portée de joint",
     champs:[
       {id:"site", label:"Site",            type:"json",  source:"Sites.json", req:true},
-      {id:"gv",   label:"GV",              type:"liste", options:GV_OPTIONS, req:true},
+      {id:"gv",   label:"GV",              type:"liste", options:["1","2","3","4"], req:true},
       {id:"sens", label:"Entrée / Sortie", type:"liste", options:["Entrée","Sortie"], req:true}
     ],
-    path:v=>`photo-PIGVS/${v.site}/4- Portées de joint/${v.gv}/${v.sens}`,
+    path:v=>`photo-PIGVS/${v.site}/Portées de joint/${v.gv}/${v.sens}`,
     nomPhoto:{ type:"liste", label:"Repère", req:true, options:[
       {label:"TP 0",     value:"TP_0"},
       {label:"TP 180",   value:"TP_180"},
@@ -162,17 +160,19 @@ const TYPES = {
   "condition-acces": {
     titre:"🚪 Condition d'accès",
     champs:[
-      {id:"site", label:"Site", type:"json", source:"Sites.json", req:true}
+      {id:"site",        label:"Site",        type:"json",     source:"Sites.json", req:true},
+      {id:"commentaire", label:"Commentaire", type:"textarea", req:false}
     ],
-    path:v=>`photo-PIGVS/${v.site}/5- Conditions d'accès`,
+    path:v=>`photo-PIGVS/${v.site}/Conditions d'accès`,
     nomPhoto:{ type:"text", label:"Nom de la photo (facultatif)", req:false }
   },
   "autre": {
     titre:"🗂️ Autre",
     champs:[
-      {id:"site", label:"Site", type:"json", source:"Sites.json", req:true}
+      {id:"site",        label:"Site",        type:"json",     source:"Sites.json", req:true},
+      {id:"commentaire", label:"Commentaire", type:"textarea", req:false}
     ],
-    path:v=>`photo-PIGVS/${v.site}/6- Autre`,
+    path:v=>`photo-PIGVS/${v.site}/Autre`,
     nomPhoto:{ type:"text", label:"Nom de la photo (facultatif)", req:false }
   }
 };
@@ -208,7 +208,7 @@ document.getElementById('mailDest').textContent = DESTINATAIRE;
    UTILITAIRES
    ========================================================= */
 function clean(s){ return (s||'').toString().trim().replace(/[\\\/:*?"<>|#]/g,'-'); }
-function escAttr(s){ return (s||'').toString().replace(/"/g,'&quot;'); }
+function escAttr(s){ return (s||'').toString().replace(/"/g,'"'); }
 function setStatusP(t,m){ statusPhoto.className="status "+t; statusPhoto.innerHTML=m; }
 function clearStatusP(){ statusPhoto.className="status"; statusPhoto.innerHTML=""; }
 function tailleTotale(){ return photos.reduce((s,p)=>s+p.file.size,0); }
@@ -298,7 +298,7 @@ function lireValeurs(){
   const v={};
   TYPE.champs.forEach(c=>{
     const el=document.getElementById('f_'+c.id);
-    v[c.id] = clean(el.value);
+    v[c.id] = c.type==='textarea' ? (el.value||'') : clean(el.value);
   });
   return v;
 }
