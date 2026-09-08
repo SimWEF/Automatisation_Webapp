@@ -224,8 +224,8 @@ Promise.all([
 ]).then(([equipData, siteData]) => {
   equipements = equipData;
   sites = siteData;
-  createAutocomplete("equipements", "equipementList", equipements);
-  createAutocomplete("Sites", "siteList", sites);
+  createAutocomplete("equipement", "equipementList", equipements);
+  createAutocomplete("site", "siteList", sites);
 });
 // ✅ fermer dropdown
 document.addEventListener("click", function(e) {
