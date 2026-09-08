@@ -220,7 +220,7 @@ function selectItem(value, inputId, listId) {
 // ✅ charger données
 Promise.all([
   fetch("equipements.json").then(res => res.json()),
-  fetch("Sites.json").then(res => res.json())
+  fetch("sites.json").then(res => res.json())
 ]).then(([equipData, siteData]) => {
   equipements = equipData;
   sites = siteData;
