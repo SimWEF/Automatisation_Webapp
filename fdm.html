@@ -266,5 +266,9 @@ function envoyer() {
   window.location.href = url;
 }
 </script>
+pigvs-chantier.js 
+<script> 
+PIGVS.loadChantiers().then(function(){ PIGVS.prefillSite(document.getElementById('site')); }); 
+</script>
 </body>
 </html>
