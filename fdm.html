@@ -51,7 +51,6 @@
   </header>
   <div class="container">
 
-    <!-- Numéro de fiche auto-généré -->
     <div class="num-box">
       <div class="lab">N° de fiche (généré automatiquement)</div>
       <div class="val" id="numFicheVal">—</div>
@@ -109,7 +108,6 @@
       <input type="text" id="redacteur" placeholder="Votre nom">
     </div>
 
-    <!-- PHOTOS (facultatives) -->
     <div class="card" style="margin-top:8px">
       <div class="section-title">📷 Photos (facultatif)</div>
       <p class="photo-note">Ajoute des photos : elles seront envoyées <b>avec la fiche</b>, dans le même mail.</p>
@@ -124,7 +122,6 @@
       <div class="jauge"><div id="jaugeFill"></div></div>
     </div>
 
-    <!-- Adresse + envoi unique -->
     <div class="adresse-bloc">
       <span class="mail" id="mailDest">fdm-pigvs@tasociete.fr</span>
       <button type="button" class="btn-copy" id="copyBtn">Copier</button>
@@ -137,16 +134,20 @@
 
 <script src="pigvs-chantier.js"></script>
 <script>
-/* =========================================================
-   CONFIG
-   ========================================================= */
-const DESTINATAIRE  = "souarns@westinghouse.com";  // adresse dédiée FDM
+const DESTINATAIRE  = "souarns@westinghouse.com";
 const QUALITE_JPEG  = 0.90;
 const MAX_LARGEUR   = 2500;
 const LIMITE_TOTALE = 10 * 1024 * 1024;
 
+/* Nettoie pour un chemin/nom SharePoint MAIS conserve le # (autorisé par SharePoint) */
+function sanitizePath(s){ return (s||'').toString().trim().replace(/[\\\/:*?"<>|]/g,'-'); }
+/* Nettoie strictement (numéro, site) — retire aussi le # */
+function cleanStrict(s){ return (s||'').toString().trim().replace(/[\\\/:*?"<>|#]/g,'-'); }
+/* Valeur pour un marqueur : garde le #, supprime les retours ligne et neutralise le token de fin '#|' */
+function forMarker(s){ return (s||'').toString().replace(/[\r\n]+/g,' / ').replace(/#\|/g,'# |').trim(); }
+
 /* =========================================================
-   AUTOCOMPLÉTION (équipement / site)
+   AUTOCOMPLÉTION
    ========================================================= */
 function normalize(str){ return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,""); }
 function editDistance(a,b){
@@ -205,7 +206,6 @@ document.addEventListener("click", e=>{
 });
 window.addEventListener("load", ()=>{ document.getElementById("date").valueAsDate=new Date(); });
 
-/* Pré-remplissage du site selon le chantier + génération du numéro */
 if (window.PIGVS) {
   PIGVS.loadChantiers().then(function(){
     PIGVS.prefillSite(document.getElementById('site'));
@@ -214,13 +214,11 @@ if (window.PIGVS) {
 }
 
 /* =========================================================
-   NUMÉRO DE FICHE auto-généré : FDM-{SITE}-{AAAAMMJJ}-{HHMMSS}
-   (unique en pratique, généré avant tout envoi)
+   NUMÉRO DE FICHE : FDM-{SITE}-{AAAAMMJJ}-{HHMMSS}
    ========================================================= */
 let NUM_FICHE = "";
-function cleanP(s){ return (s||'').toString().trim().replace(/[\\\/:*?"<>|#]/g,'-'); }
 function majNumero(){
-  const site = cleanP(document.getElementById('site').value) || "SITE";
+  const site = cleanStrict(document.getElementById('site').value) || "SITE";
   const d = new Date();
   const p = n => String(n).padStart(2,'0');
   const stamp = `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
@@ -326,28 +324,25 @@ document.getElementById('sendBtn').addEventListener('click', async ()=>{
   }
   if(tailleTotale() > LIMITE_TOTALE){ setStatus('erreur',"⚠️ Total photos > 10 Mo."); return; }
 
-  // On fige le numéro au moment de l'envoi
   majNumero();
   const num = NUM_FICHE;
 
-  // Les champs multi-lignes sont mis sur une seule ligne (parsing Power Automate fiable)
-  const oneLine = s => (s||'').replace(/[\r\n]+/g,' / ').replace(/#/g,'');
+  /* Chemin : # conservé (SharePoint l'accepte), autres caractères illégaux nettoyés */
+  const chemin = `fiches de maintenance/${sanitizePath(equipement)}`;
 
-  // Dossier SharePoint : fiches de maintenance/{Equipement}
-  const chemin = `fiches de maintenance/${cleanP(equipement)}`;
-
+  /* Marqueurs fermés par '#|' -> les valeurs peuvent contenir des '#' (ex : CART #03) */
   const texte =
 `#FDMPIGVS#
-#NUM:${num}#
-#PATH:${chemin}#
-#EQUIP:${oneLine(equipement)}#
-#SITE:${oneLine(site)}#
-#DATE:${date}#
-#MATERIEL:${oneLine(materiel)}#
-#ACTION1:${oneLine(action1)}#
-#ACTION2:${oneLine(action2)}#
-#REDACTEUR:${oneLine(redacteur)}#
-#DESC:${oneLine(description)}#
+#NUM:${num}#|
+#PATH:${chemin}#|
+#EQUIP:${forMarker(equipement)}#|
+#SITE:${forMarker(site)}#|
+#DATE:${date}#|
+#MATERIEL:${forMarker(materiel)}#|
+#ACTION1:${forMarker(action1)}#|
+#ACTION2:${forMarker(action2)}#|
+#REDACTEUR:${forMarker(redacteur)}#|
+#DESC:${forMarker(description)}#|
 
 --- Fiche de maintenance ${num} ---
 Équipement : ${equipement}
@@ -360,15 +355,12 @@ Rédacteur : ${redacteur}
 Description : ${description}
 Photos : ${photos.length}`;
 
-  // Photos nommées {num}_1.jpg, {num}_2.jpg ...
   const files = photos.map((p,idx)=> new File([p.file], `${num}_${idx+1}.jpg`, {type:'image/jpeg'}));
-
   const donnees = { title:"Fiche de maintenance "+num, text:texte };
   if(files.length) donnees.files = files;
 
-  const peutPartagerFichiers = files.length ? (navigator.canShare && navigator.canShare({files})) : !!navigator.share;
-
-  if(peutPartagerFichiers){
+  const peutPartager = files.length ? (navigator.canShare && navigator.canShare({files})) : !!navigator.share;
+  if(peutPartager){
     try{
       await navigator.share(donnees);
       setStatus('ok',"✅ Partage lancé ("+num+"). Choisis Outlook/Gmail, colle l'adresse puis envoie.");
