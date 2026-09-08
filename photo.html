@@ -32,6 +32,16 @@
       border:1px solid #ccc; box-sizing:border-box; }
     textarea { min-height:70px; resize:none; }
     .card > label { display:block; font-weight:bold; margin-bottom:8px; font-size:15px; }
+    /* --- Autocomplétion recherche --- */
+    .ac-wrap { position:relative; }
+    .ac-list { position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid #ccc;
+      border-radius:8px; max-height:220px; overflow-y:auto; z-index:60; display:none;
+      box-shadow:0 6px 16px rgba(0,0,0,.14); }
+    .ac-list div { padding:11px 12px; font-size:15px; cursor:pointer; border-bottom:1px solid #f0f0f0; }
+    .ac-list div:last-child { border-bottom:0; }
+    .ac-list div:hover { background:#e7f0fb; }
+    .ac-list .ac-empty { color:#8a94a1; cursor:default; }
+    /* --- Galeries --- */
     #galerie.grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:14px; }
     #galerie.grid .vignette { position:relative; border-radius:10px; overflow:hidden; border:1px solid #d0d7de; aspect-ratio:1/1; }
     #galerie.grid .vignette img { width:100%; height:100%; object-fit:cover; display:block; }
@@ -44,7 +54,7 @@
     #galerie.liste .ligne { display:flex; align-items:center; gap:10px; border:1px solid #d0d7de;
       border-radius:10px; padding:8px; }
     #galerie.liste .ligne img { width:64px; height:64px; object-fit:cover; border-radius:8px; flex:0 0 auto; }
-    #galerie.liste .ligne .rep { flex:1; }
+    #galerie.liste .ligne .rep { flex:1; position:relative; }
     #galerie.liste .ligne .rep select, #galerie.liste .ligne .rep input { padding:10px; font-size:15px; }
     #galerie.liste .ligne .rep.manquant select,
     #galerie.liste .ligne .rep.manquant input { border-color:#d93838; background:#fff5f5; }
@@ -109,6 +119,13 @@ const QUALITE_JPEG   = 0.90;
 const MAX_LARGEUR    = 2500;
 const LIMITE_TOTALE  = 10 * 1024 * 1024;
 
+const GV_OPTIONS = ["GV1","GV2","GV3","GV4"];
+
+/* type des champs :
+   - "json"    : liste chargée depuis un .json -> champ RECHERCHE (autocomplétion)
+   - "liste"   : petit menu fixe -> <select>
+   - "date"    : sélecteur de date
+   nomPhoto.type "json" -> champ RECHERCHE par photo (ex : caisses) */
 const TYPES = {
   "colisage-conteneur": {
     titre:"📦 Colisage conteneur",
@@ -116,7 +133,7 @@ const TYPES = {
       {id:"site",      label:"Site",      type:"json", source:"sites.json",      req:true},
       {id:"conteneur", label:"Conteneur", type:"json", source:"conteneurs.json", req:true}
     ],
-    path:v=>`photo-PIGVS/${v.site}/Colisage conteneur/${v.conteneur}`,
+    path:v=>`photo-PIGVS/${v.site}/1- Colisage conteneur/${v.conteneur}`,
     nomPhoto:{ type:"text", label:"Nom de la photo (facultatif)", req:false }
   },
   "colisage-caisse": {
@@ -124,19 +141,19 @@ const TYPES = {
     champs:[
       {id:"site", label:"Site", type:"json", source:"sites.json", req:true}
     ],
-    path:v=>`photo-PIGVS/${v.site}/Colisage caisse`,
+    path:v=>`photo-PIGVS/${v.site}/2- Colisage caisse`,
     nomPhoto:{ type:"json", source:"caisses.json", label:"Caisse (facultatif)", req:false }
   },
   "cahier-quart": {
     titre:"📓 Cahier de quart",
     champs:[
       {id:"site",     label:"Site",     type:"json",  source:"sites.json", req:true},
-      {id:"gv",       label:"GV",       type:"liste", options:["1","2","3","4"], req:true},
+      {id:"gv",       label:"GV",       type:"liste", options:GV_OPTIONS, req:true},
       {id:"activite", label:"Activité", type:"liste", options:["lançage","ETV"], req:true},
       {id:"date",     label:"Date",     type:"date",  req:true},
       {id:"poste",    label:"Poste",    type:"liste", options:["Matin","Après-midi","Nuit","Journée"], req:true}
     ],
-    path:v=>`photo-PIGVS/${v.site}/Cahier de quart/${v.gv}/${v.activite}`,
+    path:v=>`photo-PIGVS/${v.site}/3- Cahier de quart/${v.gv}/${v.activite}`,
     nomBase:v=>`${v.date}_${v.poste}`,
     nomPhoto:{ type:"text", label:"Nom de la photo (facultatif)", req:false }
   },
@@ -144,10 +161,10 @@ const TYPES = {
     titre:"🔩 Portée de joint",
     champs:[
       {id:"site", label:"Site",            type:"json",  source:"sites.json", req:true},
-      {id:"gv",   label:"GV",              type:"liste", options:["1","2","3","4"], req:true},
+      {id:"gv",   label:"GV",              type:"liste", options:GV_OPTIONS, req:true},
       {id:"sens", label:"Entrée / Sortie", type:"liste", options:["Entrée","Sortie"], req:true}
     ],
-    path:v=>`photo-PIGVS/${v.site}/Portées de joint/${v.gv}/${v.sens}`,
+    path:v=>`photo-PIGVS/${v.site}/4- Portées de joint/${v.gv}/${v.sens}`,
     nomPhoto:{ type:"liste", label:"Repère", req:true, options:[
       {label:"TP 0",     value:"TP_0"},
       {label:"TP 180",   value:"TP_180"},
@@ -160,19 +177,17 @@ const TYPES = {
   "condition-acces": {
     titre:"🚪 Condition d'accès",
     champs:[
-      {id:"site",        label:"Site",        type:"json",     source:"sites.json", req:true},
-      {id:"commentaire", label:"Commentaire", type:"textarea", req:false}
+      {id:"site", label:"Site", type:"json", source:"sites.json", req:true}
     ],
-    path:v=>`photo-PIGVS/${v.site}/Conditions d'accès`,
+    path:v=>`photo-PIGVS/${v.site}/5- Conditions d'accès`,
     nomPhoto:{ type:"text", label:"Nom de la photo (facultatif)", req:false }
   },
   "autre": {
     titre:"🗂️ Autre",
     champs:[
-      {id:"site",        label:"Site",        type:"json",     source:"sites.json", req:true},
-      {id:"commentaire", label:"Commentaire", type:"textarea", req:false}
+      {id:"site", label:"Site", type:"json", source:"sites.json", req:true}
     ],
-    path:v=>`photo-PIGVS/${v.site}/Autre`,
+    path:v=>`photo-PIGVS/${v.site}/6- Autre`,
     nomPhoto:{ type:"text", label:"Nom de la photo (facultatif)", req:false }
   }
 };
@@ -190,7 +205,8 @@ const apercuChemin = document.getElementById('apercuChemin');
 const aideNom      = document.getElementById('aide-nom');
 
 let photos = [];
-let nomPhotoOptions = [];
+let nomPhotoOptions = [];      // options de caisses.json (nommage par photo)
+const champData = {};          // données des champs json (site, conteneur…)
 
 const camInput   = document.getElementById('camInput');
 const galInput   = document.getElementById('galInput');
@@ -208,11 +224,77 @@ document.getElementById('mailDest').textContent = DESTINATAIRE;
    UTILITAIRES
    ========================================================= */
 function clean(s){ return (s||'').toString().trim().replace(/[\\\/:*?"<>|#]/g,'-'); }
-function escAttr(s){ return (s||'').toString().replace(/"/g,'"'); }
+function escAttr(s){ return (s||'').toString().replace(/"/g,'&quot;'); }
 function setStatusP(t,m){ statusPhoto.className="status "+t; statusPhoto.innerHTML=m; }
 function clearStatusP(){ statusPhoto.className="status"; statusPhoto.innerHTML=""; }
 function tailleTotale(){ return photos.reduce((s,p)=>s+p.file.size,0); }
 function fmtMo(o){ return (o/1048576).toFixed(1); }
+
+/* ---- Recherche floue (identique à la FDM) ---- */
+function normalize(str){ return (str||'').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,""); }
+function editDistance(a,b){
+  const dp=[]; for(let i=0;i<=a.length;i++){dp[i]=[];dp[i][0]=i;} for(let j=0;j<=b.length;j++){dp[0][j]=j;}
+  for(let i=1;i<=a.length;i++){for(let j=1;j<=b.length;j++){
+    const cost=a[i-1]===b[j-1]?0:1;
+    dp[i][j]=Math.min(dp[i-1][j]+1,dp[i][j-1]+1,dp[i-1][j-1]+cost);
+    if(i>1&&j>1&&a[i-1]===b[j-2]&&a[i-2]===b[j-1]){dp[i][j]=Math.min(dp[i][j],dp[i-2][j-2]+1);}
+  }} return dp[a.length][b.length];
+}
+function wordScore(s,t){
+  if(!s) return 1;
+  if(t===s) return 120;
+  if(t.startsWith(s)) return 100;
+  if(t.includes(s)) return 80;
+  const tp=t.substring(0,s.length);
+  const d=Math.min(editDistance(s,t),editDistance(s,tp));
+  let th=0; if(s.length<=3)th=0; else if(s.length<=5)th=1; else if(s.length<=9)th=2; else th=3;
+  return d<=th ? 60-d*10 : 0;
+}
+function itemScore(search,item){
+  const q=normalize(search), text=normalize(item);
+  if(!q) return 1;
+  const qw=q.split(/\s+/).filter(Boolean), tw=text.split(/\s+/).filter(Boolean);
+  let total=0;
+  for(const w of qw){ let best=0; for(const t of tw){ const sc=wordScore(w,t); if(sc>best)best=sc; } if(best===0) return 0; total+=best; }
+  if(text.startsWith(q)) total+=50;
+  if(text.includes(q)) total+=30;
+  return total;
+}
+
+/* ---- Attache une autocomplétion à un input + sa liste ---- */
+function attachAutocomplete(input, listEl, getData, onChange){
+  function show(filter){
+    const data = getData() || [];
+    const val = normalize(filter);
+    let results = data.map(item=>({original:item, score:itemScore(val,item)}))
+                      .filter(r=>r.score>0)
+                      .sort((a,b)=> b.score!==a.score ? b.score-a.score : a.original.localeCompare(b.original))
+                      .slice(0,100);
+    if(results.length===0){
+      listEl.innerHTML = "<div class='ac-empty'>Aucun résultat</div>";
+    } else {
+      listEl.innerHTML = results.map(r=>`<div>${r.original}</div>`).join('');
+      listEl.querySelectorAll('div').forEach(d=>{
+        d.addEventListener('mousedown', ev=>{        // mousedown = avant le blur
+          ev.preventDefault();
+          input.value = d.textContent.trim();
+          listEl.style.display = "none";
+          if(onChange) onChange(input.value);
+        });
+      });
+    }
+    listEl.style.display = "block";
+  }
+  input.addEventListener('focus', ()=> show(input.value));
+  input.addEventListener('input', ()=>{ show(input.value); if(onChange) onChange(input.value); });
+}
+
+/* Ferme toutes les listes en cliquant ailleurs */
+document.addEventListener('click', function(e){
+  if(!e.target.closest('.ac-wrap')){
+    document.querySelectorAll('.ac-list').forEach(l=> l.style.display='none');
+  }
+});
 
 function compresser(file){
   return new Promise((resolve,reject)=>{
@@ -245,14 +327,17 @@ function construireChamps(){
     const req = c.req ? ' <span class="req">*</span>' : '';
     let inner = `<label for="f_${c.id}">${c.label}${req}</label>`;
     if(c.type==='json'){
-      inner += `<select id="f_${c.id}"><option value="">— choisir —</option></select>`;
+      // Champ de RECHERCHE avec autocomplétion
+      inner += `<div class="ac-wrap">
+                  <input type="text" id="f_${c.id}" autocomplete="off" autocorrect="off"
+                         autocapitalize="off" spellcheck="false" placeholder="Rechercher…">
+                  <div class="ac-list" id="ac_f_${c.id}"></div>
+                </div>`;
     } else if(c.type==='liste'){
       inner += `<select id="f_${c.id}"><option value="">— choisir —</option>` +
         c.options.map(o=>`<option value="${o}">${o}</option>`).join('') + `</select>`;
     } else if(c.type==='date'){
       inner += `<input type="date" id="f_${c.id}">`;
-    } else if(c.type==='textarea'){
-      inner += `<textarea id="f_${c.id}"></textarea>`;
     } else {
       inner += `<input type="text" id="f_${c.id}">`;
     }
@@ -263,22 +348,23 @@ function construireChamps(){
   TYPE.champs.forEach(c=>{
     const el=document.getElementById('f_'+c.id);
     if(c.type==='json'){
-      fetch(c.source).then(r=>r.json()).then(list=>{
-        list.forEach(item=>{
-          const o=document.createElement('option'); o.value=item; o.textContent=item; el.appendChild(o);
-        });
-      }).catch(()=>{ el.innerHTML='<option value="">⚠️ '+c.source+' introuvable</option>'; });
+      champData[c.id] = [];
+      fetch(c.source).then(r=>r.json()).then(list=>{ champData[c.id]=list; })
+        .catch(()=>{ el.placeholder='⚠️ '+c.source+' introuvable'; });
+      // Autocomplétion (lecture dynamique -> l'ordre de chargement importe peu)
+      const listEl = document.getElementById('ac_f_'+c.id);
+      attachAutocomplete(el, listEl, ()=>champData[c.id], ()=>majEtat());
+    } else {
+      if(c.type==='date'){ el.value = new Date().toISOString().slice(0,10); }
+      el.addEventListener('input', majEtat);
+      el.addEventListener('change', majEtat);
     }
-    if(c.type==='date'){ el.value = new Date().toISOString().slice(0,10); }
-    el.addEventListener('input', majEtat);
-    el.addEventListener('change', majEtat);
   });
 
+  // Options de nommage par photo (caisses)
   if(TYPE.nomPhoto && TYPE.nomPhoto.type==='json'){
-    fetch(TYPE.nomPhoto.source).then(r=>r.json()).then(list=>{
-      nomPhotoOptions = list;
-      rendreGalerie();
-    }).catch(()=>{ nomPhotoOptions = []; });
+    fetch(TYPE.nomPhoto.source).then(r=>r.json()).then(list=>{ nomPhotoOptions = list; })
+      .catch(()=>{ nomPhotoOptions = []; });
   }
 
   if(TYPE.nomPhoto){
@@ -298,7 +384,7 @@ function lireValeurs(){
   const v={};
   TYPE.champs.forEach(c=>{
     const el=document.getElementById('f_'+c.id);
-    v[c.id] = c.type==='textarea' ? (el.value||'') : clean(el.value);
+    v[c.id] = clean(el.value);
   });
   return v;
 }
@@ -346,42 +432,60 @@ async function traiterFichiers(fichiers){
 camInput.addEventListener('change', async e=>{ const f=Array.from(e.target.files||[]); camInput.value=""; await traiterFichiers(f); });
 galInput.addEventListener('change', async e=>{ const f=Array.from(e.target.files||[]); galInput.value=""; await traiterFichiers(f); });
 
-function champNomPhoto(p, i){
-  const np = TYPE.nomPhoto;
-  if(np.type==='text'){
-    return `<input type="text" data-i="${i}" placeholder="${escAttr(np.label)}" value="${escAttr(p.nom)}">`;
-  }
-  let opts = `<option value="">— ${np.req ? 'choisir' : 'facultatif'} —</option>`;
-  if(np.type==='json'){
-    opts += nomPhotoOptions.map(o=>`<option value="${escAttr(o)}" ${p.nom===o?'selected':''}>${o}</option>`).join('');
-  } else {
-    opts += np.options.map(o=>`<option value="${o.value}" ${p.nom===o.value?'selected':''}>${o.label}</option>`).join('');
-  }
-  return `<select data-i="${i}">${opts}</select>`;
-}
-
 function rendreGalerie(){
   galerie.innerHTML="";
 
   if(TYPE.nomPhoto){
+    const np = TYPE.nomPhoto;
     photos.forEach((p,i)=>{
-      const manquant = (TYPE.nomPhoto.req && !p.nom) ? ' manquant' : '';
+      const manquant = (np.req && !p.nom) ? ' manquant' : '';
+      let champHtml;
+      if(np.type==='text'){
+        champHtml = `<input type="text" class="np-text" data-i="${i}" placeholder="${escAttr(np.label)}" value="${escAttr(p.nom)}">`;
+      } else if(np.type==='json'){
+        // Champ de RECHERCHE par photo (caisses)
+        champHtml = `<div class="ac-wrap">
+                       <input type="text" class="np-ac" data-i="${i}" autocomplete="off"
+                              placeholder="${escAttr(np.label)}" value="${escAttr(p.nom)}">
+                       <div class="ac-list" id="ac_np_${i}"></div>
+                     </div>`;
+      } else { // liste fixe (repères) -> select
+        let opts = `<option value="">— ${np.req ? 'choisir' : 'facultatif'} —</option>` +
+          np.options.map(o=>`<option value="${o.value}" ${p.nom===o.value?'selected':''}>${o.label}</option>`).join('');
+        champHtml = `<select class="np-select" data-i="${i}">${opts}</select>`;
+      }
       const ligne=document.createElement('div'); ligne.className='ligne';
       ligne.innerHTML =
         `<img src="${p.url}">
-         <div class="rep${manquant}">${champNomPhoto(p,i)}</div>
+         <div class="rep${manquant}">${champHtml}</div>
          <button class="suppr" data-i="${i}">×</button>`;
       galerie.appendChild(ligne);
     });
-    galerie.querySelectorAll('.rep input, .rep select').forEach(el=>{
-      const evt = el.tagName==='SELECT' ? 'change' : 'input';
-      el.addEventListener(evt, ()=>{
-        const i = +el.dataset.i;
-        photos[i].nom = el.value;
-        if(TYPE.nomPhoto.req){ el.closest('.rep').classList.toggle('manquant', !el.value); }
+
+    // Écouteurs selon le type (sans re-render pour préserver le focus)
+    galerie.querySelectorAll('.np-text').forEach(el=>{
+      el.addEventListener('input', ()=>{
+        const i=+el.dataset.i; photos[i].nom = el.value;
         majEtat();
       });
     });
+    galerie.querySelectorAll('.np-select').forEach(el=>{
+      el.addEventListener('change', ()=>{
+        const i=+el.dataset.i; photos[i].nom = el.value;
+        if(np.req){ el.closest('.rep').classList.toggle('manquant', !el.value); }
+        majEtat();
+      });
+    });
+    galerie.querySelectorAll('.np-ac').forEach(el=>{
+      const i=+el.dataset.i;
+      const listEl = document.getElementById('ac_np_'+i);
+      attachAutocomplete(el, listEl, ()=>nomPhotoOptions, (val)=>{
+        photos[i].nom = val;
+        if(np.req){ el.closest('.rep').classList.toggle('manquant', !val); }
+        majEtat();
+      });
+    });
+
   } else {
     photos.forEach((p,i)=>{
       const div=document.createElement('div'); div.className='vignette';
