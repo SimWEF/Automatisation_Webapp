@@ -31,7 +31,11 @@ const ASSETS = [
   "rex.html",
   "info.html",
   "icon-192.png",
-  "icon-512.png"
+  "icon-512.png",
+  "pigvs-chantier.js",
+   "chantiers.json", 
+   "info-paluel4.json",
+   "info-cattenom3.json"
 ];
 
 /* --- Installation : pré-cache de la coquille --- */

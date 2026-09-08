@@ -8,12 +8,27 @@
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0078D7">
   <link rel="apple-touch-icon" href="icon-192.png">
+  <style>
+    .chantier-bar { background:#fff; border:1px solid #e0e0e0; border-radius:12px;
+      padding:12px 14px; margin-bottom:16px; }
+    .chantier-bar label { display:block; font-size:12px; font-weight:700; color:#5a6673; margin-bottom:6px; }
+    .pigvs-select { width:100%; padding:12px; font-size:16px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box; }
+    .chantier-warn { display:none; margin-top:8px; font-size:13px; color:#b45309; }
+  </style>
 </head>
 <body>
   <header class="app-header">
     <h1>🔧 PIGVS</h1>
   </header>
   <div class="container">
+
+    <!-- SÉLECTEUR DE CHANTIER -->
+    <div class="chantier-bar">
+      <label>🏭 Chantier en cours</label>
+      <div id="chantierSelector"></div>
+      <div class="chantier-warn" id="chantierWarn">⚠️ Choisis ton chantier pour pré-remplir les formulaires.</div>
+    </div>
+
     <p class="info" style="color:var(--muted)">Choisissez une application</p>
 
     <a class="card clickable" href="fdm.html"
@@ -71,7 +86,17 @@
     </a>
 
   </div>
+
+  <script src="pigvs-chantier.js"></script>
   <script>
+    PIGVS.loadChantiers().then(function () {
+      const warn = document.getElementById('chantierWarn');
+      PIGVS.renderSelector(document.getElementById('chantierSelector'), function () {
+        warn.style.display = PIGVS.getChantier() ? 'none' : 'block';
+      });
+      warn.style.display = PIGVS.getChantier() ? 'none' : 'block';
+    });
+
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
         navigator.serviceWorker.register('service-worker.js')
