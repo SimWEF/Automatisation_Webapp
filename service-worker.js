@@ -26,6 +26,10 @@ const ASSETS = [
   "materiel.html",
   "style.css",
   "manifest.json",
+  "colisage-data.json",
+  "colisage.html",
+  "rex.html",
+  "info.html",
   "icon-192.png",
   "icon-512.png"
 ];
