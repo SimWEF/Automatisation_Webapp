@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Photo — PIGVS</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0078D7">
+  <link rel="apple-touch-icon" href="icon-192.png">
   <style>
     .adresse-bloc { display:flex; align-items:center; gap:10px; background:#f2f4f7;
       border:1px dashed #0078D7; border-radius:12px; padding:12px; }
@@ -32,7 +35,6 @@
       border:1px solid #ccc; box-sizing:border-box; }
     textarea { min-height:70px; resize:none; }
     .card > label { display:block; font-weight:bold; margin-bottom:8px; font-size:15px; }
-    /* --- Autocomplétion recherche --- */
     .ac-wrap { position:relative; }
     .ac-list { position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid #ccc;
       border-radius:8px; max-height:220px; overflow-y:auto; z-index:60; display:none;
@@ -41,7 +43,6 @@
     .ac-list div:last-child { border-bottom:0; }
     .ac-list div:hover { background:#e7f0fb; }
     .ac-list .ac-empty { color:#8a94a1; cursor:default; }
-    /* --- Galeries --- */
     #galerie.grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:14px; }
     #galerie.grid .vignette { position:relative; border-radius:10px; overflow:hidden; border:1px solid #d0d7de; aspect-ratio:1/1; }
     #galerie.grid .vignette img { width:100%; height:100%; object-fit:cover; display:block; }
@@ -70,9 +71,6 @@
     .status.ok    { display:block; background:#e4f6ec; color:#1f9d55; }
     .status.erreur{ display:block; background:#fdecec; color:#d93838; }
   </style>
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0078D7">
-  <link rel="apple-touch-icon" href="icon-192.png">
 </head>
 <body>
   <header class="app-header">
@@ -113,22 +111,16 @@
       <div id="statusPhoto" class="status"></div>
     </div>
   </div>
+
+<!-- ✅ Module chantier chargé AVANT le script principal -->
+<script src="pigvs-chantier.js"></script>
 <script>
-/* =========================================================
-   CONFIGURATION GÉNÉRALE
-   ========================================================= */
 const DESTINATAIRE = "souarns@westinghouse.com";
 const QUALITE_JPEG   = 0.90;
 const MAX_LARGEUR    = 2500;
 const LIMITE_TOTALE  = 10 * 1024 * 1024;
-
 const GV_OPTIONS = ["GV1","GV2","GV3","GV4"];
 
-/* type des champs :
-   - "json"    : liste chargée depuis un .json -> champ RECHERCHE (autocomplétion)
-   - "liste"   : petit menu fixe -> <select>
-   - "date"    : sélecteur de date
-   nomPhoto.type "json" -> champ RECHERCHE par photo (ex : caisses) */
 const TYPES = {
   "colisage-conteneur": {
     titre:"📦 Colisage conteneur",
@@ -195,9 +187,6 @@ const TYPES = {
   }
 };
 
-/* =========================================================
-   RÉFÉRENCES DOM
-   ========================================================= */
 const params = new URLSearchParams(location.search);
 const TYPE_ID = params.get('type');
 const TYPE = TYPES[TYPE_ID];
@@ -208,8 +197,8 @@ const apercuChemin = document.getElementById('apercuChemin');
 const aideNom      = document.getElementById('aide-nom');
 
 let photos = [];
-let nomPhotoOptions = [];      // options de caisses.json (nommage par photo)
-const champData = {};          // données des champs json (site, conteneur…)
+let nomPhotoOptions = [];
+const champData = {};
 
 const camInput   = document.getElementById('camInput');
 const galInput   = document.getElementById('galInput');
@@ -223,9 +212,6 @@ const copyBtn    = document.getElementById('copyBtn');
 
 document.getElementById('mailDest').textContent = DESTINATAIRE;
 
-/* =========================================================
-   UTILITAIRES
-   ========================================================= */
 function clean(s){ return (s||'').toString().trim().replace(/[\\\/:*?"<>|#]/g,'-'); }
 function escAttr(s){ return (s||'').toString().replace(/"/g,'&quot;'); }
 function setStatusP(t,m){ statusPhoto.className="status "+t; statusPhoto.innerHTML=m; }
@@ -233,7 +219,6 @@ function clearStatusP(){ statusPhoto.className="status"; statusPhoto.innerHTML="
 function tailleTotale(){ return photos.reduce((s,p)=>s+p.file.size,0); }
 function fmtMo(o){ return (o/1048576).toFixed(1); }
 
-/* ---- Recherche floue (identique à la FDM) ---- */
 function normalize(str){ return (str||'').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,""); }
 function editDistance(a,b){
   const dp=[]; for(let i=0;i<=a.length;i++){dp[i]=[];dp[i][0]=i;} for(let j=0;j<=b.length;j++){dp[0][j]=j;}
@@ -263,8 +248,6 @@ function itemScore(search,item){
   if(text.includes(q)) total+=30;
   return total;
 }
-
-/* ---- Attache une autocomplétion à un input + sa liste ---- */
 function attachAutocomplete(input, listEl, getData, onChange){
   function show(filter){
     const data = getData() || [];
@@ -278,7 +261,7 @@ function attachAutocomplete(input, listEl, getData, onChange){
     } else {
       listEl.innerHTML = results.map(r=>`<div>${r.original}</div>`).join('');
       listEl.querySelectorAll('div').forEach(d=>{
-        d.addEventListener('mousedown', ev=>{        // mousedown = avant le blur
+        d.addEventListener('mousedown', ev=>{
           ev.preventDefault();
           input.value = d.textContent.trim();
           listEl.style.display = "none";
@@ -291,8 +274,6 @@ function attachAutocomplete(input, listEl, getData, onChange){
   input.addEventListener('focus', ()=> show(input.value));
   input.addEventListener('input', ()=>{ show(input.value); if(onChange) onChange(input.value); });
 }
-
-/* Ferme toutes les listes en cliquant ailleurs */
 document.addEventListener('click', function(e){
   if(!e.target.closest('.ac-wrap')){
     document.querySelectorAll('.ac-list').forEach(l=> l.style.display='none');
@@ -320,9 +301,6 @@ function compresser(file){
   });
 }
 
-/* =========================================================
-   CONSTRUCTION DES CHAMPS
-   ========================================================= */
 function construireChamps(){
   TYPE.champs.forEach(c=>{
     const wrap=document.createElement('div');
@@ -330,7 +308,6 @@ function construireChamps(){
     const req = c.req ? ' <span class="req">*</span>' : '';
     let inner = `<label for="f_${c.id}">${c.label}${req}</label>`;
     if(c.type==='json'){
-      // Champ de RECHERCHE avec autocomplétion
       inner += `<div class="ac-wrap">
                   <input type="text" id="f_${c.id}" autocomplete="off" autocorrect="off"
                          autocapitalize="off" spellcheck="false" placeholder="Rechercher…">
@@ -354,7 +331,6 @@ function construireChamps(){
       champData[c.id] = [];
       fetch(c.source).then(r=>r.json()).then(list=>{ champData[c.id]=list; })
         .catch(()=>{ el.placeholder='⚠️ '+c.source+' introuvable'; });
-      // Autocomplétion (lecture dynamique -> l'ordre de chargement importe peu)
       const listEl = document.getElementById('ac_f_'+c.id);
       attachAutocomplete(el, listEl, ()=>champData[c.id], ()=>majEtat());
     } else {
@@ -364,7 +340,6 @@ function construireChamps(){
     }
   });
 
-  // Options de nommage par photo (caisses)
   if(TYPE.nomPhoto && TYPE.nomPhoto.type==='json'){
     fetch(TYPE.nomPhoto.source).then(r=>r.json()).then(list=>{ nomPhotoOptions = list; })
       .catch(()=>{ nomPhotoOptions = []; });
@@ -404,9 +379,6 @@ function nomPhotoOK(){
   return photos.length>0 && photos.every(p=>p.nom && p.nom.trim()!=='');
 }
 
-/* =========================================================
-   PHOTOS
-   ========================================================= */
 copyBtn.addEventListener('click', async ()=>{
   try{ await navigator.clipboard.writeText(DESTINATAIRE); }
   catch(err){ const t=document.createElement('textarea'); t.value=DESTINATAIRE;
@@ -437,7 +409,6 @@ galInput.addEventListener('change', async e=>{ const f=Array.from(e.target.files
 
 function rendreGalerie(){
   galerie.innerHTML="";
-
   if(TYPE.nomPhoto){
     const np = TYPE.nomPhoto;
     photos.forEach((p,i)=>{
@@ -446,13 +417,12 @@ function rendreGalerie(){
       if(np.type==='text'){
         champHtml = `<input type="text" class="np-text" data-i="${i}" placeholder="${escAttr(np.label)}" value="${escAttr(p.nom)}">`;
       } else if(np.type==='json'){
-        // Champ de RECHERCHE par photo (caisses)
         champHtml = `<div class="ac-wrap">
                        <input type="text" class="np-ac" data-i="${i}" autocomplete="off"
                               placeholder="${escAttr(np.label)}" value="${escAttr(p.nom)}">
                        <div class="ac-list" id="ac_np_${i}"></div>
                      </div>`;
-      } else { // liste fixe (repères) -> select
+      } else {
         let opts = `<option value="">— ${np.req ? 'choisir' : 'facultatif'} —</option>` +
           np.options.map(o=>`<option value="${o.value}" ${p.nom===o.value?'selected':''}>${o.label}</option>`).join('');
         champHtml = `<select class="np-select" data-i="${i}">${opts}</select>`;
@@ -464,8 +434,6 @@ function rendreGalerie(){
          <button class="suppr" data-i="${i}">×</button>`;
       galerie.appendChild(ligne);
     });
-
-    // Écouteurs selon le type (sans re-render pour préserver le focus)
     galerie.querySelectorAll('.np-text').forEach(el=>{
       el.addEventListener('input', ()=>{
         const i=+el.dataset.i; photos[i].nom = el.value;
@@ -488,7 +456,6 @@ function rendreGalerie(){
         majEtat();
       });
     });
-
   } else {
     photos.forEach((p,i)=>{
       const div=document.createElement('div'); div.className='vignette';
@@ -539,9 +506,6 @@ function nomsFichiers(){
   });
 }
 
-/* =========================================================
-   ENVOI via navigator.share()
-   ========================================================= */
 sendBtn.addEventListener('click', async ()=>{
   if(!photos.length){ setStatusP('erreur',"⚠️ Ajoute d'abord des photos."); return; }
   if(!champsOK()){ setStatusP('erreur',"⚠️ Remplis les champs obligatoires (*)."); return; }
@@ -592,11 +556,15 @@ if(!TYPE){
 } else {
   titrePage.textContent = TYPE.titre;
   construireChamps();
+
+  // ✅ PRÉ-REMPLISSAGE DU SITE (champ f_site) selon le chantier choisi
+  if (window.PIGVS) {
+    PIGVS.loadChantiers().then(function () {
+      const s = document.getElementById('f_site');
+      if (s) { PIGVS.prefillSite(s); majEtat(); }
+    });
+  }
 }
-</script>
-pigvs-chantier.js 
-<script> 
-PIGVS.loadChantiers().then(function(){ PIGVS.prefillSite(document.getElementById('site')); }); 
 </script>
 </body>
 </html>

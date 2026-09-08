@@ -100,20 +100,19 @@
     <div id="status" class="status"></div>
   </div>
 
+<!-- ✅ Module chantier chargé AVANT le script principal -->
+<script src="pigvs-chantier.js"></script>
 <script>
 const DESTINATAIRE = "souarns@westinghouse.com"; // adresse dédiée REX
-
 const siteInput = document.getElementById('site');
 const siteList  = document.getElementById('siteList');
 const status    = document.getElementById('status');
 const copyBtn   = document.getElementById('copyBtn');
 document.getElementById('mailDest').textContent = DESTINATAIRE;
-
 let sites = [];
 
 function normalize(s){ return (s||'').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,""); }
 
-/* Autocomplétion site */
 fetch('sites.json').then(r=>r.json()).then(list=>{ sites=list; }).catch(()=>{});
 siteInput.addEventListener('focus', ()=>showSites(''));
 siteInput.addEventListener('input', ()=>showSites(siteInput.value));
@@ -128,7 +127,13 @@ function showSites(filter){
 }
 document.addEventListener('click', e=>{ if(!e.target.closest('.field-wrap')) siteList.style.display='none'; });
 
-/* Copier l'adresse */
+// ✅ PRÉ-REMPLISSAGE DU SITE selon le chantier choisi
+if (window.PIGVS) {
+  PIGVS.loadChantiers().then(function () {
+    PIGVS.prefillSite(siteInput);
+  });
+}
+
 copyBtn.addEventListener('click', async ()=>{
   try{ await navigator.clipboard.writeText(DESTINATAIRE); }
   catch(err){ const t=document.createElement('textarea'); t.value=DESTINATAIRE;
@@ -138,7 +143,6 @@ copyBtn.addEventListener('click', async ()=>{
 
 function setStatus(cls,msg){ status.className="status "+cls; status.textContent=msg; }
 
-/* Envoi via navigator.share() (ou copie dans le presse-papiers en secours) */
 document.getElementById('sendBtn').addEventListener('click', async ()=>{
   const site        = document.getElementById('site').value.trim();
   const gv          = document.getElementById('gv').value.trim();
@@ -189,10 +193,6 @@ function copierTexte(texte){
     setStatus('erreur',"❌ Impossible de partager ici. Note le REX manuellement.");
   }
 }
-</script>
-pigvs-chantier.js 
-<script> 
-PIGVS.loadChantiers().then(function(){ PIGVS.prefillSite(document.getElementById('site')); }); 
 </script>
 </body>
 </html>

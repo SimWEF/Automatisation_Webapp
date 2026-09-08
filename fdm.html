@@ -5,16 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FDM Maintenance</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0078D7">
+  <link rel="apple-touch-icon" href="icon-192.png">
 </head>
 <body>
   <header class="app-header">
     <a class="back" href="index.html">‹</a>
     <h1>🔧 Fiche de maintenance</h1>
   </header>
-
   <div class="container">
     <p class="info">* champs obligatoires</p>
-
     <div class="field-group">
       <label>Équipement <span class="req">*</span></label>
       <div class="field-wrap">
@@ -25,17 +26,14 @@
         <div id="equipementList" class="dropdown"></div>
       </div>
     </div>
-
     <div class="field-group">
       <label>Description <span class="req">*</span></label>
       <textarea id="description" placeholder="Décrire le problème…"></textarea>
     </div>
-
     <div class="field-group">
       <label>Date <span class="req">*</span></label>
       <input type="date" id="date">
     </div>
-
     <div class="field-group">
       <label>Site <span class="req">*</span></label>
       <div class="field-wrap">
@@ -46,7 +44,6 @@
         <div id="siteList" class="dropdown"></div>
       </div>
     </div>
-
     <div class="field-group">
       <label>Matériel utilisable ? <span class="req">*</span></label>
       <div class="choice-group">
@@ -56,59 +53,39 @@
       </div>
       <input type="hidden" id="materiel">
     </div>
-
     <div class="field-group">
       <label>Action immédiate</label>
       <textarea id="action1" placeholder="Action corrective immédiate…"></textarea>
     </div>
-
     <div class="field-group">
       <label>Action à effectuer</label>
       <textarea id="action2" placeholder="Action à prévoir…"></textarea>
     </div>
-
     <div class="field-group">
       <label>Rédacteur <span class="req">*</span></label>
       <input type="text" id="redacteur" placeholder="Votre nom">
     </div>
-
     <button class="btn" onclick="envoyer()">✅ Envoyer</button>
   </div>
 
+<!-- ✅ IMPORTANT : charge le module chantier AVANT le script principal -->
+<script src="pigvs-chantier.js"></script>
 <script>
 // Ignorer accents
 function normalize(str) {
-return str
-  .toLowerCase()
-  .normalize("NFD")
-  .replace(/[\u0300-\u036f]/g, "");
+return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 //Fuzzy
 function editDistance(a, b) {
   const dp = [];
-  for (let i = 0; i <= a.length; i++) {
-    dp[i] = [];
-    dp[i][0] = i;
-  }
-  for (let j = 0; j <= b.length; j++) {
-    dp[0][j] = j;
-  }
+  for (let i = 0; i <= a.length; i++) { dp[i] = []; dp[i][0] = i; }
+  for (let j = 0; j <= b.length; j++) { dp[0][j] = j; }
   for (let i = 1; i <= a.length; i++) {
     for (let j = 1; j <= b.length; j++) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      dp[i][j] = Math.min(
-        dp[i - 1][j] + 1,
-        dp[i][j - 1] + 1,
-        dp[i - 1][j - 1] + cost
-      );
-      // Tolérance inversion de deux lettres
-      if (
-        i > 1 &&
-        j > 1 &&
-        a[i - 1] === b[j - 2] &&
-        a[i - 2] === b[j - 1]
-      ) {
-        dp[i][j] = Math.min(dp[i][j], dp[i - 2][j - 2] + 1);
+      dp[i][j] = Math.min(dp[i-1][j]+1, dp[i][j-1]+1, dp[i-1][j-1]+cost);
+      if (i>1 && j>1 && a[i-1]===b[j-2] && a[i-2]===b[j-1]) {
+        dp[i][j] = Math.min(dp[i][j], dp[i-2][j-2]+1);
       }
     }
   }
@@ -119,24 +96,14 @@ function wordScore(searchWord, targetWord) {
   if (targetWord === searchWord) return 120;
   if (targetWord.startsWith(searchWord)) return 100;
   if (targetWord.includes(searchWord)) return 80;
-  // On compare aussi avec le début du mot cible
   const targetPrefix = targetWord.substring(0, searchWord.length);
-  const distFull = editDistance(searchWord, targetWord);
-  const distPrefix = editDistance(searchWord, targetPrefix);
-  const dist = Math.min(distFull, distPrefix);
+  const dist = Math.min(editDistance(searchWord, targetWord), editDistance(searchWord, targetPrefix));
   let threshold = 0;
-  if (searchWord.length <= 3) {
-    threshold = 0;
-  } else if (searchWord.length <= 5) {
-    threshold = 1;
-  } else if (searchWord.length <= 9) {
-    threshold = 2;
-  } else {
-    threshold = 3;
-  }
-  if (dist <= threshold) {
-    return 60 - dist * 10;
-  }
+  if (searchWord.length <= 3) threshold = 0;
+  else if (searchWord.length <= 5) threshold = 1;
+  else if (searchWord.length <= 9) threshold = 2;
+  else threshold = 3;
+  if (dist <= threshold) return 60 - dist * 10;
   return 0;
 }
 function itemScore(search, item) {
@@ -150,37 +117,22 @@ function itemScore(search, item) {
     let bestWordScore = 0;
     for (const tWord of textWords) {
       const score = wordScore(qWord, tWord);
-      if (score > bestWordScore) {
-        bestWordScore = score;
-      }
+      if (score > bestWordScore) bestWordScore = score;
     }
-    // Si un des mots tapés ne matche rien, on rejette l'élément
-    if (bestWordScore === 0) {
-      return 0;
-    }
+    if (bestWordScore === 0) return 0;
     totalScore += bestWordScore;
   }
-  // Bonus si la chaîne complète commence pareil
-  if (text.startsWith(query)) {
-    totalScore += 50;
-  }
-  // Bonus si la chaîne complète contient la recherche
-  if (text.includes(query)) {
-    totalScore += 30;
-  }
+  if (text.startsWith(query)) totalScore += 50;
+  if (text.includes(query)) totalScore += 30;
   return totalScore;
 }
-// ✅ globals
 let equipements = [];
 let sites = [];
-// ✅ sélection matériel
 function selectMateriel(value, element) {
   document.getElementById("materiel").value = value;
-  document.querySelectorAll(".choice-group button")
-    .forEach(btn => btn.classList.remove("active"));
+  document.querySelectorAll(".choice-group button").forEach(btn => btn.classList.remove("active"));
   element.classList.add("active");
 }
-// ✅ AUTOCOMPLETE
 function createAutocomplete(inputId, listId, dataList) {
   const input = document.getElementById(inputId);
   const list = document.getElementById(listId);
@@ -188,36 +140,25 @@ function createAutocomplete(inputId, listId, dataList) {
   input.addEventListener("input", () => showList(input.value));
 function showList(filter) {
   const val = normalize(filter);
-  let results = dataList.map(item => ({
-    original: item,
-    score: itemScore(val, item)
-  }));
+  let results = dataList.map(item => ({ original:item, score:itemScore(val,item) }));
   results = results.filter(r => r.score > 0);
-  results.sort((a, b) => {
-    if (b.score !== a.score) {
-      return b.score - a.score;
-    }
-    return a.original.localeCompare(b.original);
-  });
+  results.sort((a, b) => (b.score !== a.score) ? b.score - a.score : a.original.localeCompare(b.original));
   results = results.slice(0, 100);
-  if (results.length === 0) {
-    list.innerHTML = "<div>Aucun résultat</div>";
-  } else {
+  if (results.length === 0) { list.innerHTML = "<div>Aucun résultat</div>"; }
+  else {
     list.innerHTML = results.map(item => `
       <div onclick="selectItem('${item.original.replace(/'/g, "\\'")}', '${inputId}', '${listId}')">
         ${item.original}
-      </div>
-    `).join("");
+      </div>`).join("");
   }
   list.style.display = "block";
 }
 }
-// ✅ sélection item
 function selectItem(value, inputId, listId) {
   document.getElementById(inputId).value = value;
   document.getElementById(listId).style.display = "none";
 }
-// ✅ charger données
+// charger données
 Promise.all([
   fetch("equipements.json").then(res => res.json()),
   fetch("sites.json").then(res => res.json())
@@ -227,18 +168,24 @@ Promise.all([
   createAutocomplete("equipement", "equipementList", equipements);
   createAutocomplete("site", "siteList", sites);
 });
-// ✅ fermer dropdown
+// fermer dropdown
 document.addEventListener("click", function(e) {
   if (!e.target.closest(".field-wrap")) {
-    document.querySelectorAll(".dropdown")
-      .forEach(d => d.style.display = "none");
+    document.querySelectorAll(".dropdown").forEach(d => d.style.display = "none");
   }
 });
-// ✅ auto date
-window.onload = function() {
+// auto date
+window.addEventListener("load", function() {
   document.getElementById("date").valueAsDate = new Date();
-};
-// ✅ ENVOI
+});
+
+// ✅ PRÉ-REMPLISSAGE DU SITE selon le chantier choisi
+if (window.PIGVS) {
+  PIGVS.loadChantiers().then(function () {
+    PIGVS.prefillSite(document.getElementById('site'));
+  });
+}
+
 function envoyer() {
   const equipement = document.getElementById("equipement").value;
   const description = document.getElementById("description").value;
@@ -265,10 +212,6 @@ function envoyer() {
     + "&r38c32352ebca4f7e88f37c0de9bf0bf0=" + encodeURIComponent(redacteur);
   window.location.href = url;
 }
-</script>
-pigvs-chantier.js 
-<script> 
-PIGVS.loadChantiers().then(function(){ PIGVS.prefillSite(document.getElementById('site')); }); 
 </script>
 </body>
 </html>
